@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Apply to organize — TournamentSC{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:560px">
+  <h1>Apply to become an organizer</h1>
+  <p class="muted">Tell us a little about yourself. An admin reviews every application before you can create tournaments.</p>
+  <form method="post" class="panel" style="margin-top:20px">
+    {% csrf_token %}
+    {% include 'partials/form.html' %}
+    <button class="btn btn-primary btn-block" type="submit">Submit application</button>
+  </form>
+</section>
+{% endblock %}

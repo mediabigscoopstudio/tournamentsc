@@ -1,0 +1,31 @@
+{% extends 'dash/base.html' %}
+{% block page_title %}Reports{% endblock %}
+{% block content %}
+
+<div class="dash-head">
+  <h1>Reports</h1>
+  <p class="muted">Export any resource as CSV. Search and filters applied on a list page carry
+    through to its export.</p>
+</div>
+
+<div class="table-wrap tblcard">
+  <table class="dtable">
+    <thead><tr><th>Report</th><th>Records</th><th class="ta-r">Export</th></tr></thead>
+    <tbody>
+      {% for r in exportable %}
+        <tr>
+          <td><span class="ic">{{ r.icon }}</span> {{ r.label }}</td>
+          <td>{{ r.count }}</td>
+          <td class="ta-r">
+            <div class="rowacts">
+              <a class="btn btn-secondary btn-sm" href="/dashboard/{{ r.key }}/">Open</a>
+              <a class="btn btn-primary btn-sm" href="/dashboard/reports/{{ r.key }}.csv">Download CSV</a>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

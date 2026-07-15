@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile.user.display_name }} — TournamentSC{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:720px">
+  <div class="row-flex">
+    <div class="avatar" style="width:64px;height:64px;font-size:22px">
+      {% if profile.profile_photo %}<img src="{{ profile.profile_photo.url }}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">{% else %}{{ profile.user.display_name|slice:':1'|upper }}{% endif %}
+    </div>
+    <div>
+      <h1 style="margin:0">{{ profile.user.display_name }}{% if profile.user.is_verified %} <span class="verified">✔</span>{% endif %}</h1>
+      <p class="muted" style="margin:4px 0 0">{{ profile.city|default:'' }}</p>
+    </div>
+  </div>
+  {% if profile.bio %}<p style="margin-top:16px">{{ profile.bio }}</p>{% endif %}
+  <div class="pill-row" style="margin-top:12px">
+    {% for s in profile.sports.all %}<span class="tag {{ s.tag_class }}">{{ s.icon }} {{ s.name }}</span>{% endfor %}
+  </div>
+
+  <div class="divider"></div>
+  <h3>Tournaments played ({{ history.count }})</h3>
+  <div class="stack" style="margin-top:12px">
+    {% for t in history.tournaments %}
+      <a class="fixture-row" href="{{ t.get_absolute_url }}">
+        <span>{{ t.name }}</span>
+        <span class="tag {{ t.sport.tag_class }}">{{ t.sport.icon }}</span>
+      </a>
+    {% empty %}<p class="dim">No tournament history yet.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}

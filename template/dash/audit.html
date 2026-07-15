@@ -1,0 +1,49 @@
+{% extends 'dash/base.html' %}
+{% block page_title %}Activity log{% endblock %}
+{% block content %}
+
+<div class="dash-head spread">
+  <div>
+    <h1>Activity log</h1>
+    <p class="muted">Every administrative action, newest first.</p>
+  </div>
+  <a class="btn btn-secondary btn-sm" href="/dashboard/reports/">Reports</a>
+</div>
+
+<form method="get" class="dfilters">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="Search by action, target or admin…">
+  <button class="btn btn-secondary btn-sm" type="submit">Search</button>
+  {% if q %}<a class="btn btn-ghost btn-sm" href="/dashboard/logs/">Clear</a>{% endif %}
+</form>
+
+{% if page.object_list %}
+<div class="table-wrap tblcard">
+  <table class="dtable">
+    <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for e in page.object_list %}
+        <tr>
+          <td class="mono">{{ e.created_at|date:'d M Y, H:i' }}</td>
+          <td>{{ e.actor.display_name|default:'system' }}</td>
+          <td><span class="badge badge-upcoming">{{ e.action }}</span></td>
+          <td>{{ e.target|default:'—' }}</td>
+          <td class="muted">{{ e.detail|default:'—'|truncatechars:80 }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page.has_other_pages %}
+  <div class="pager">
+    {% if page.has_previous %}<a class="btn btn-secondary btn-sm" href="?page={{ page.previous_page_number }}&q={{ q }}">← Previous</a>{% endif %}
+    <span class="muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-secondary btn-sm" href="?page={{ page.next_page_number }}&q={{ q }}">Next →</a>{% endif %}
+  </div>
+{% endif %}
+
+{% else %}
+  <div class="empty">No activity recorded{% if q %} for “{{ q }}”{% endif %}.</div>
+{% endif %}
+
+{% endblock %}

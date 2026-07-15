@@ -1,0 +1,50 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin sign in — TournamentSC</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;0,900;1,800;1,900&family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/dash.css' %}">
+</head>
+<body>
+<div class="signin-wrap">
+  <div class="signin-card">
+    <a href="/" class="brand-logo brand-logo--lg" style="justify-content:center">
+      <img src="{% static 'images/logo.png' %}" alt="TournamentSC">
+    </a>
+    <p class="dim center" style="margin-top:0">Admin console</p>
+
+    {% if form.non_field_errors %}
+      <div class="msg error" style="margin-top:16px">
+        {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" style="margin-top:16px">
+      {% csrf_token %}
+      <div class="field">
+        <label for="{{ form.identifier.id_for_label }}">Email or phone</label>
+        <input class="input" id="{{ form.identifier.id_for_label }}" name="identifier"
+               value="{{ form.identifier.value|default:'' }}" autocomplete="username" autofocus>
+      </div>
+      <div class="field">
+        <label for="{{ form.password.id_for_label }}">Password</label>
+        <input class="input" id="{{ form.password.id_for_label }}" type="password" name="password"
+               autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+
+    <p class="dim center" style="margin-top:18px; font-size:12.5px">
+      Administrator accounts only. Players and organizers sign in on the
+      <a href="/login" style="color:var(--orange)">public site</a>.
+    </p>
+  </div>
+</div>
+</body>
+</html>

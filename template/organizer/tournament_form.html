@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}{% if create %}Create{% else %}Edit{% endif %} tournament — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:720px">
+  <a class="dim" href="{% if create %}{% url 'organizer_dashboard' %}{% else %}{% url 'tournament_manage' tournament.slug %}{% endif %}">← Back</a>
+  <h1 style="margin-top:10px">{% if create %}Create tournament{% else %}Edit {{ tournament.name }}{% endif %}</h1>
+
+  {% if form.locked %}
+    <div class="msg info" style="margin-top:12px">Sport and format are locked because fixtures already exist.</div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="panel tblcard" style="margin-top:20px">
+    {% csrf_token %}
+    {% include 'partials/form.html' %}
+    <div class="row-flex" style="margin-top:16px">
+      <button class="btn btn-primary" type="submit">{% if create %}Create draft{% else %}Save changes{% endif %}</button>
+      <a class="btn btn-ghost" href="{% if create %}{% url 'organizer_dashboard' %}{% else %}{% url 'tournament_manage' tournament.slug %}{% endif %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

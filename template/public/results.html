@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Results — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head">
+    <div><h2>Results</h2><p>Every completed match, newest first.</p></div>
+  </div>
+
+  {% if page.object_list %}
+    <div class="flist">
+      {% for fx in page.object_list %}
+        <a class="frow" href="{{ fx.get_absolute_url }}" style="text-decoration:none">
+          <span class="ft">{% for p in fx.participants.all|slice:':1' %}{{ p.name }}{% empty %}TBD{% endfor %}</span>
+          <span class="fm">
+            <span class="fsc">{% for p in fx.participants.all|slice:':2' %}{{ p.score|default_if_none:'–' }}{% if not forloop.last %}-{% endif %}{% endfor %}</span><br>
+            <span class="fchip done">{{ fx.tournament.name }}</span>
+          </span>
+          <span class="ft r">{% for p in fx.participants.all|slice:'1:2' %}{{ p.name }}{% empty %}—{% endfor %}</span>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if page.has_other_pages %}
+      <div class="pager" style="margin-top:24px">
+        {% if page.has_previous %}<a class="btn btn--secondary btn--sm" href="?page={{ page.previous_page_number }}">← Previous</a>{% endif %}
+        <span class="dim">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn btn--secondary btn--sm" href="?page={{ page.next_page_number }}">Next →</a>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="empty">No results published yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

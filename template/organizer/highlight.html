@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Highlights — {{ tournament.name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:640px">
+  <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
+  <h1 style="margin-top:12px">Publish highlights</h1>
+  <p class="muted">A short recap for {{ fixture.round_name|default:'this fixture' }}.
+    Publishing makes it public on the match page.</p>
+
+  <form method="post" enctype="multipart/form-data" class="panel tblcard" style="margin-top:20px">
+    {% csrf_token %}
+    {% include 'partials/form.html' %}
+    <div class="row-flex" style="margin-top:14px">
+      <button class="btn btn-secondary" name="save" value="1" type="submit">Save draft</button>
+      <button class="btn btn-primary" name="publish" value="1" type="submit">Publish highlights</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

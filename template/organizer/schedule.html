@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Schedule — {{ tournament.name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:560px">
+  <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
+  <h1 style="margin-top:12px">Schedule this match</h1>
+  <p class="muted">
+    {% for p in fixture.participants.all %}{{ p.name }}{% if not forloop.last %} vs {% endif %}{% endfor %}
+    · {{ fixture.round_name|default:'Fixture' }}
+  </p>
+
+  <form method="post" class="panel tblcard" style="margin-top:20px">
+    {% csrf_token %}
+    {% include 'partials/form.html' %}
+    <p class="dim" style="font-size:13px">
+      Saving a kick-off time notifies every player in this match.
+    </p>
+    <div class="row-flex" style="margin-top:14px">
+      <button class="btn btn-primary" type="submit">Save schedule</button>
+      <a class="btn btn-ghost" href="{% url 'fixtures_manage' tournament.slug %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

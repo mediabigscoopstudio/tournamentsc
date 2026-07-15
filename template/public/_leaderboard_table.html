@@ -1,0 +1,31 @@
+{% comment %}
+Timed leaderboard (time-trial / single-event). Shared by the detail tab and the
+standalone standings page. Context: leaderboard, leaderboard_fixture
+{% endcomment %}
+<div class="tblcard"><h4>{{ leaderboard_fixture.round_name }} · leaderboard</h4>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th class="n">Pos</th><th>Competitor</th>
+      <th class="n">Bib</th><th class="n">Pace</th>
+      <th class="n">Result</th><th>State</th>
+    </tr></thead>
+    <tbody>
+      {% for p in leaderboard %}
+        <tr class="{% if p.rank == 1 %}qual{% endif %}">
+          <td class="n">{% if p.rank %}<span class="rk" style="margin-left:auto">{{ p.rank }}</span>{% else %}—{% endif %}</td>
+          <td><div class="tcell">{{ p.name }}</div></td>
+          <td class="n">{{ p.bib|default:'—' }}</td>
+          <td class="n">{% if p.pace_display %}{{ p.pace_display }} /km{% else %}—{% endif %}</td>
+          <td class="pts">{% if p.time_ms %}{{ p.time_display }}{% elif p.score is not None %}{{ p.score }}{% else %}—{% endif %}</td>
+          <td>{{ p.get_result_state_display }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+<div class="qnote"><span class="qkey"></span>
+  Times are chip timings and update as competitors cross checkpoints.
+  {% if not leaderboard_fixture.event_category.distance_km %}
+    Set a distance on the category to show pace.
+  {% endif %}
+</div>

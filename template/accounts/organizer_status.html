@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Organizer status — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:560px">
+  <div class="eyebrow">🎪 Organizer</div>
+  <h1>Organizer status</h1>
+
+  {% if approved %}
+    <div class="panel tblcard stack">
+      <span class="badge badge-completed">✓ Approved</span>
+      <p>You're an approved organizer. You can create and run tournaments now.</p>
+      <a class="btn btn-primary" href="{% url 'organizer_dashboard' %}">Go to organizer dashboard</a>
+    </div>
+  {% elif application.status == 'REJECTED' %}
+    <div class="panel tblcard stack">
+      <span class="badge badge-cancelled">Not approved</span>
+      {% if application.rejection_reason %}<p class="muted">Reason: {{ application.rejection_reason }}</p>{% endif %}
+      <a class="btn btn-secondary" href="{% url 'organizer_apply' %}">Re-apply</a>
+    </div>
+  {% elif application %}
+    <div class="panel tblcard stack">
+      <span class="badge badge-upcoming">⏳ Pending review</span>
+      <p>Your application is in the queue. We'll notify you as soon as an admin reviews it.</p>
+      <dl class="kv">
+        <dt>Affiliation</dt><dd>{{ application.affiliation }}</dd>
+        <dt>Submitted</dt><dd>{{ application.created_at|date:'d M Y' }}</dd>
+      </dl>
+    </div>
+  {% else %}
+    <div class="panel tblcard stack">
+      <p>You haven't applied to organize yet.</p>
+      <a class="btn btn-primary" href="{% url 'organizer_apply' %}">Apply now</a>
+    </div>
+  {% endif %}
+
+  <p class="dim center" style="margin-top:18px">
+    Meanwhile you can still <a href="{% url 'player_dashboard' %}">compete as a player</a>.
+  </p>
+</section>
+{% endblock %}

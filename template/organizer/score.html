@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Score — {{ tournament.name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:720px">
+  <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
+  <div class="spread" style="margin-top:12px">
+    <h1>{{ fixture.round_name|default:'Fixture' }}</h1>
+    {% if fixture.status == 'LIVE' %}<span class="badge badge-live"><span class="badge-dot"></span>Live</span>
+    {% elif fixture.status == 'COMPLETED' %}<span class="badge badge-completed">Final</span>
+    {% else %}<span class="badge badge-upcoming">{{ fixture.get_status_display }}</span>{% endif %}
+  </div>
+
+  {% if fixture.status == 'SCHEDULED' %}
+    <form method="post" style="margin-top:16px">{% csrf_token %}
+      <input type="hidden" name="action" value="start">
+      <button class="btn btn-primary">▶ Start match (mark LIVE)</button>
+    </form>
+  {% endif %}
+
+  <form method="post" class="panel tblcard" style="margin-top:20px">
+    {% csrf_token %}
+    <h3>Enter result</h3>
+    <div class="stack" style="margin-top:16px">
+      {% for p in participants %}
+        <div class="row-flex" style="justify-content:space-between; gap:12px">
+          <strong style="flex:1">{{ p.name }}</strong>
+          {% if is_time %}
+            <input class="input" name="time_{{ p.id }}" placeholder="mm:ss.mmm"
+                   value="{{ p.time_display }}" style="max-width:140px">
+            <select name="state_{{ p.id }}" class="input" style="max-width:120px">
+              <option value="OK" {% if p.result_state == 'OK' %}selected{% endif %}>Finished</option>
+              <option value="DNF" {% if p.result_state == 'DNF' %}selected{% endif %}>DNF</option>
+              <option value="DSQ" {% if p.result_state == 'DSQ' %}selected{% endif %}>DSQ</option>
+            </select>
+          {% elif is_lobby %}
+            <input class="input" name="kills_{{ p.id }}" type="number" min="0" placeholder="kills"
+                   value="{{ p.stats.kills|default_if_none:'' }}" style="max-width:90px">
+            <input class="input" name="place_{{ p.id }}" type="number" min="1" placeholder="place"
+                   value="{{ p.rank|default_if_none:'' }}" style="max-width:90px">
+          {% else %}
+            <input class="input" name="score_{{ p.id }}" type="number" step="any"
+                   value="{{ p.score|default_if_none:'' }}" placeholder="score" style="max-width:120px">
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="row-flex" style="margin-top:20px">
+      <button class="btn btn-secondary" name="action" value="save">Save progress</button>
+      <button class="btn btn-primary" name="action" value="finalize"
+              onclick="return confirm('Finalize this match? Standings and brackets will update.')">
+        Finalize result
+      </button>
+    </div>
+  </form>
+
+  <div class="two-col" style="margin-top:24px; align-items:start">
+    <form method="post" class="panel tblcard">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="youtube">
+      <h3>Stream link</h3>
+      <div class="field" style="margin-top:12px">
+        <input class="input" name="youtube_url" value="{{ fixture.youtube_url }}"
+               placeholder="https://youtube.com/live/...">
+      </div>
+      <button class="btn btn-secondary btn-sm">Save stream</button>
+    </form>
+
+    <form method="post" class="panel tblcard">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="commentary">
+      <h3>Post commentary</h3>
+      <div class="field" style="margin-top:12px">
+        <input class="input" name="commentary" placeholder="e.g. 18–16, timeout Ravens" maxlength="280">
+      </div>
+      <button class="btn btn-secondary btn-sm">Post</button>
+      <ul class="feed" style="margin-top:12px">
+        {% for e in events %}
+          <li><span class="t">{{ e.created_at|date:'H:i' }}</span><span>{{ e.description }}</span></li>
+        {% empty %}
+          <li class="dim">No commentary yet.</li>
+        {% endfor %}
+      </ul>
+    </form>
+  </div>
+</section>
+{% endblock %}

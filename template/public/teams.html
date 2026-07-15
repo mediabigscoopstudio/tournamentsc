@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Teams — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head">
+    <div><h2>Teams</h2><p>Every squad competing on {{ site_conf.site_name }}.</p></div>
+  </div>
+
+  <form method="get" class="row-flex" style="margin-bottom:24px; flex-wrap:wrap">
+    <input class="input" name="q" value="{{ q }}" placeholder="Team name" style="max-width:280px">
+    <select class="input" name="sport" style="max-width:200px">
+      <option value="">All sports</option>
+      {% for s in sports %}
+        <option value="{{ s.slug }}" {% if s.slug == sport_slug %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn--primary" type="submit">Filter</button>
+  </form>
+
+  {% if page.object_list %}
+    <div class="card-grid">
+      {% for team in page.object_list %}
+        <a class="panel tblcard" href="{% url 'team_detail' team.pk %}">
+          <div class="row-flex" style="justify-content:space-between">
+            <span class="tag {{ team.sport.tag_class }}">{{ team.sport.icon }} {{ team.sport.name }}</span>
+          </div>
+          <h3 style="margin-top:10px">{{ team.name }}</h3>
+          <p class="muted">{{ team.memberships.count }} member{{ team.memberships.count|pluralize }}</p>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if page.has_other_pages %}
+      <div class="pager" style="margin-top:24px">
+        {% if page.has_previous %}<a class="btn btn--secondary btn--sm" href="?page={{ page.previous_page_number }}&q={{ q }}&sport={{ sport_slug }}">← Previous</a>{% endif %}
+        <span class="dim">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn btn--secondary btn--sm" href="?page={{ page.next_page_number }}&q={{ q }}&sport={{ sport_slug }}">Next →</a>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="empty">No teams found{% if q %} for “{{ q }}”{% endif %}.</div>
+  {% endif %}
+</section>
+{% endblock %}

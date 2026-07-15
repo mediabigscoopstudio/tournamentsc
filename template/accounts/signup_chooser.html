@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Sign up — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:680px">
+  <div class="center">
+    <h1>Join {{ site_conf.site_name }}</h1>
+    <p class="muted">Pick how you want to take part. You can always apply to organize later.</p>
+  </div>
+
+  <div class="two-col" style="margin-top:28px; align-items:stretch">
+    {% if site_conf.allow_player_registration %}
+      <a class="panel tblcard authcard" href="/player/register">
+        <div class="authcard__ic">🏃</div>
+        <h3>Compete as a player</h3>
+        <p class="muted">Register for tournaments, join a team, follow your own fixtures and results.</p>
+        <span class="btn btn-primary btn-block" style="margin-top:14px">Create player account</span>
+      </a>
+    {% else %}
+      <div class="panel tblcard authcard">
+        <div class="authcard__ic">🏃</div>
+        <h3>Compete as a player</h3>
+        <p class="muted">Player registration is currently closed.</p>
+      </div>
+    {% endif %}
+
+    {% if site_conf.allow_organizer_registration %}
+      <a class="panel tblcard authcard" href="/organizer/register">
+        <div class="authcard__ic">🎪</div>
+        <h3>Run a tournament</h3>
+        <p class="muted">Create and manage tournaments, teams, fixtures and live scores.
+          An admin reviews organizer accounts before you go live.</p>
+        <span class="btn btn-secondary btn-block" style="margin-top:14px">Create organizer account</span>
+      </a>
+    {% else %}
+      <div class="panel tblcard authcard">
+        <div class="authcard__ic">🎪</div>
+        <h3>Run a tournament</h3>
+        <p class="muted">Organizer registration is currently closed.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <p class="dim center" style="margin-top:24px">
+    Just here to watch? <a href="/browse">Browse tournaments</a> — no account needed.<br>
+    Already registered? <a href="/login">Log in</a>
+  </p>
+</section>
+{% endblock %}

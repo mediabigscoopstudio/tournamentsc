@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Highlights — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head">
+    <div><h2>Highlights</h2><p>The moments worth rewatching.</p></div>
+  </div>
+
+  {% if page.object_list %}
+    <div class="hl-grid">
+      {% for h in page.object_list %}
+        <a class="hlcard" href="{% if h.fixture %}{{ h.fixture.get_absolute_url }}{% else %}{{ h.tournament.get_absolute_url }}{% endif %}">
+          <div class="hlcard__thumb {{ h.tournament.sport.sp_class }}">
+            {% if h.image %}<img src="{{ h.image.url }}" alt="">
+            {% else %}<svg class="ico sport"><use href="#{{ h.tournament.sport.icon_symbol }}"/></svg>{% endif %}
+            <span class="hlcard__play"><svg class="ico"><use href="#i-play"/></svg></span>
+            {% if h.duration_display %}<span class="hlcard__dur">{{ h.duration_display }}</span>{% endif %}
+          </div>
+          <div class="hlcard__body">
+            <span class="tag {{ h.tournament.sport.sp_class }}">{{ h.tournament.sport.name }}</span>
+            <div class="hlcard__title">{{ h.title }}</div>
+            <div class="hlcard__meta">
+              {{ h.tournament.name }} · {{ h.views_display }} view{{ h.view_count|pluralize }}
+              {% if h.best_performer %} · ⭐ {{ h.best_performer }}{% endif %}
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if page.has_other_pages %}
+      <div class="pager" style="margin-top:24px">
+        {% if page.has_previous %}<a class="btn btn--secondary btn--sm" href="?page={{ page.previous_page_number }}">← Previous</a>{% endif %}
+        <span class="dim">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn btn--secondary btn--sm" href="?page={{ page.next_page_number }}">Next →</a>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="empty">No highlights published yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

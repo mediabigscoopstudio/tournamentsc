@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Log in — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:680px">
+  <div class="center">
+    <h1>Welcome back</h1>
+    <p class="muted">Watching a tournament? You don't need an account at all —
+      <a href="/browse">just browse</a>.</p>
+  </div>
+
+  <div class="two-col" style="margin-top:28px; align-items:stretch">
+    <a class="panel tblcard authcard" href="/player/login{% if next %}?next={{ next|urlencode }}{% endif %}">
+      <div class="authcard__ic">🏃</div>
+      <h3>I'm a player</h3>
+      <p class="muted">Join tournaments, see your fixtures, track your results.</p>
+      <span class="btn btn-primary btn-block" style="margin-top:14px">Player sign in</span>
+      <p class="dim center" style="margin-top:10px; font-size:13px">No account? Register as a player</p>
+    </a>
+
+    <a class="panel tblcard authcard" href="/organizer/login{% if next %}?next={{ next|urlencode }}{% endif %}">
+      <div class="authcard__ic">🎪</div>
+      <h3>I'm an organizer</h3>
+      <p class="muted">Create tournaments, manage teams, run live scoring.</p>
+      <span class="btn btn-secondary btn-block" style="margin-top:14px">Organizer sign in</span>
+      <p class="dim center" style="margin-top:10px; font-size:13px">No account? Apply to organize</p>
+    </a>
+  </div>
+
+  <p class="dim center" style="margin-top:24px">
+    <a href="/password-reset">Forgot your password?</a>
+  </p>
+</section>
+{% endblock %}

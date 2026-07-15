@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Search — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head"><div><h2>Search</h2><p>Find tournaments, teams and players by name.</p></div></div>
+
+  <form method="get" class="row-flex" style="margin-bottom:28px">
+    <input class="input" name="q" value="{{ q }}" placeholder="Tournament, team or player" style="max-width:420px" autofocus>
+    <button class="btn btn--primary" type="submit"><svg class="ico"><use href="#i-search"/></svg> Search</button>
+  </form>
+
+  {% if q %}
+    <h3 style="margin-bottom:12px">Tournaments</h3>
+    {% if tournaments %}
+      <div class="card-grid" style="margin-bottom:28px">
+        {% for t in tournaments %}{% include 'partials/tournament_card.html' with t=t %}{% endfor %}
+      </div>
+    {% else %}
+      <p class="dim" style="margin-bottom:28px">No tournaments found.</p>
+    {% endif %}
+
+    <h3 style="margin-bottom:12px">Teams</h3>
+    {% if teams %}
+      <div class="pill-row" style="margin-bottom:28px">
+        {% for team in teams %}
+          <a class="tag tag--plain" href="{% url 'team_detail' team.pk %}">{{ team.initials }} · {{ team.name }}</a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="dim" style="margin-bottom:28px">No teams found.</p>
+    {% endif %}
+
+    <h3 style="margin-bottom:12px">Players</h3>
+    {% if players %}
+      <div class="pill-row">
+        {% for p in players %}
+          <a class="tag tag--plain" href="{% url 'player_public' p.pk %}">
+            {{ p.user.display_name }}{% if p.user.is_verified %} ✔{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="dim">No players found.</p>
+    {% endif %}
+  {% else %}
+    <div class="empty">Type a tournament, team or player name to search.</div>
+  {% endif %}
+</section>
+{% endblock %}

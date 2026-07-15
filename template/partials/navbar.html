@@ -1,0 +1,33 @@
+{% load static %}
+<header class="nav">
+  <div class="wrap nav__row">
+    <a class="brand-logo" href="/" aria-label="{{ site_conf.site_name }} home">
+      <img src="{% static 'images/logo.png' %}" alt="{{ site_conf.site_name }}">
+    </a>
+    <nav class="nav__pill">
+      <a href="{% url 'browse' %}">Tournaments</a>
+      <a href="{% url 'live_list' %}">Live</a>
+      <a href="{% url 'results_list' %}">Results</a>
+      <a href="{% url 'news_list' %}">News</a>
+      <a href="{% url 'search' %}">Search</a>
+    </nav>
+    <div class="nav__cta">
+      {% if user.is_authenticated %}
+        <a href="{% url 'notifications' %}" class="nav__bell" aria-label="Notifications">
+          <svg class="ico" style="width:22px;height:22px"><use href="#i-bell"/></svg>
+          {% if nav_unread_count %}<span class="count">{{ nav_unread_count }}</span>{% endif %}
+        </a>
+        {% if user.is_approved_organizer %}
+          <a class="nav__login" href="{% url 'organizer_dashboard' %}">{{ user.display_name }}</a>
+        {% else %}
+          <a class="nav__login" href="{% url 'player_dashboard' %}">{{ user.display_name }}</a>
+        {% endif %}
+        <a class="btn btn--primary btn--sm" href="{% url 'logout' %}">Log out</a>
+      {% else %}
+        <a class="nav__login" href="{% url 'login' %}">Log in</a>
+        <a class="btn btn--primary btn--sm" href="{% url 'organizer_signup' %}">Start a tournament</a>
+      {% endif %}
+      <button class="nav__burger" aria-label="Open menu" data-menu-open><svg class="ico"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+</header>

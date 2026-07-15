@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — TournamentSC{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <h1>{{ title }}</h1>
+  <div class="stack" style="margin-top:20px">
+    {% for fx in fixtures %}
+      <a class="fixture-row" href="{{ fx.get_absolute_url }}">
+        <div>
+          <div>{{ fx.tournament.name }} · {{ fx.round_name }}</div>
+          <div class="dim" style="font-size:12px">{% for p in fx.participants.all %}{{ p.name }} {{ p.score|default_if_none:'' }}{% if not forloop.last %} — {% endif %}{% endfor %}</div>
+        </div>
+        <span class="badge badge-completed">Final</span>
+      </a>
+    {% empty %}<div class="empty">No completed matches yet.</div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

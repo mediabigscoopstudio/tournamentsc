@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Following — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <a class="dim" href="{% url 'player_dashboard' %}">← My dashboard</a>
+  <h1 style="margin-top:10px">Following</h1>
+  <p class="muted">Tournaments you follow. We notify you whenever a result lands.</p>
+
+  {% if tournaments %}
+    <div class="tgrid" style="margin-top:24px">
+      {% for t in tournaments %}{% include 'partials/tournament_card.html' with t=t %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="empty" style="margin-top:24px">
+      You aren't following anything yet. Open a tournament and hit
+      <strong>Follow</strong> to get its results. <a href="{% url 'browse' %}">Browse tournaments.</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

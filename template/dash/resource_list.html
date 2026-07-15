@@ -1,0 +1,114 @@
+{% extends 'dash/base.html' %}
+{% load formtags %}
+{% block page_title %}{{ res.label }}{% endblock %}
+{% block content %}
+
+<div class="dash-head spread">
+  <div>
+    <h1>{{ res.label }}</h1>
+    <p class="muted">{{ total }} record{{ total|pluralize }}{% if res.help_text %} · {{ res.help_text }}{% endif %}</p>
+  </div>
+  <div class="row-flex">
+    <a class="btn btn-secondary btn-sm" href="/dashboard/reports/{{ res.key }}.csv?{{ querystring }}">Export CSV</a>
+    {% if res.can_create and res.form %}
+      <a class="btn btn-primary btn-sm" href="/dashboard/{{ res.key }}/new">+ New {{ res.singular|lower }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<form method="get" class="dfilters">
+  {% if res.search_fields %}
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="Search {{ res.label|lower }}…">
+  {% endif %}
+  {% for param, label, choices, _f in res.filters %}
+    <select class="input" name="{{ param }}" onchange="this.form.submit()">
+      <option value="">{{ label }}: all</option>
+      {% for value, text in choices %}
+        <option value="{{ value }}" {% if value == active_filters|lookup:param %}selected{% endif %}>{{ text }}</option>
+      {% endfor %}
+    </select>
+  {% endfor %}
+  <button class="btn btn-secondary btn-sm" type="submit">Apply</button>
+  {% if q or querystring %}<a class="btn btn-ghost btn-sm" href="/dashboard/{{ res.key }}/">Clear</a>{% endif %}
+</form>
+
+{% if rows %}
+<div class="table-wrap tblcard">
+  <table class="dtable">
+    <thead>
+      <tr>
+        {% for col in res.columns %}<th>{{ col.label }}</th>{% endfor %}
+        <th class="ta-r">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          {% for cell in row.cells %}
+            <td>
+              {% if cell.kind == 'bool' %}
+                {% if cell.value %}<span class="badge badge-completed">Yes</span>{% else %}<span class="badge badge-draft">No</span>{% endif %}
+              {% elif cell.kind == 'badge' %}
+                <span class="badge badge-{{ cell.value|slugify }}">{{ cell.value }}</span>
+              {% elif cell.kind == 'link' %}
+                {% if cell.value != '—' %}<a href="{{ cell.value }}" target="_blank" rel="noopener">View</a>{% else %}—{% endif %}
+              {% else %}
+                {{ cell.value }}
+              {% endif %}
+            </td>
+          {% endfor %}
+          <td class="ta-r">
+            <div class="rowacts">
+              {% for a in row.actions %}
+                <form method="post" action="/dashboard/{{ res.key }}/{{ row.pk }}/{{ a.name }}"
+                  {% if a.name == 'reject' or a.name == 'suspend' %}
+                      data-ask-reason="1"
+                  {% elif a.confirm %}
+                      onsubmit="return confirm('{{ a.confirm|escapejs }}')"
+                  {% endif %}>
+                  {% csrf_token %}
+                  {% if a.name == 'reject' or a.name == 'suspend' %}<input type="hidden" name="reason">{% endif %}
+                  <button class="btn btn-{{ a.style }} btn-sm" type="submit">{{ a.label }}</button>
+                </form>
+              {% endfor %}
+              {% if res.can_edit and res.form %}
+                <a class="btn btn-secondary btn-sm" href="/dashboard/{{ res.key }}/{{ row.pk }}/edit">Edit</a>
+              {% endif %}
+              {% if res.can_delete %}
+                <a class="btn btn-ghost btn-sm" href="/dashboard/{{ res.key }}/{{ row.pk }}/delete">Delete</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page.has_other_pages %}
+  <div class="pager">
+    {% if page.has_previous %}<a class="btn btn-secondary btn-sm" href="?page={{ page.previous_page_number }}&{{ querystring }}">← Previous</a>{% endif %}
+    <span class="muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-secondary btn-sm" href="?page={{ page.next_page_number }}&{{ querystring }}">Next →</a>{% endif %}
+  </div>
+{% endif %}
+
+{% else %}
+  <div class="empty">
+    No {{ res.label|lower }} found{% if q %} for “{{ q }}”{% endif %}.
+    {% if res.can_create and res.form %}<a href="/dashboard/{{ res.key }}/new">Create one.</a>{% endif %}
+  </div>
+{% endif %}
+
+<script>
+  // Reject / suspend capture a reason, which is stored on the audit record and
+  // sent to the affected user in their notification.
+  document.querySelectorAll('form[data-ask-reason]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      var reason = window.prompt('Reason (shown to the user, optional):', '');
+      if (reason === null) { e.preventDefault(); return; }
+      f.querySelector('input[name=reason]').value = reason;
+    });
+  });
+</script>
+{% endblock %}

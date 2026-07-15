@@ -1,0 +1,19 @@
+<nav class="mmenu" id="mmenu" aria-hidden="true">
+  <button class="mmenu__x" aria-label="Close menu" data-menu-close><svg class="ico"><use href="#i-x"/></svg></button>
+  <a href="{% url 'browse' %}" data-menu-close>Tournaments</a>
+  <a href="{% url 'live_list' %}" data-menu-close>Live</a>
+  <a href="{% url 'results_list' %}" data-menu-close>Results</a>
+  <a href="{% url 'highlights_list' %}" data-menu-close>Highlights</a>
+  <a href="{% url 'teams_list' %}" data-menu-close>Teams</a>
+  <a href="{% url 'players_list' %}" data-menu-close>Players</a>
+  <a href="{% url 'news_list' %}" data-menu-close>News</a>
+  <a href="{% url 'search' %}" data-menu-close>Search</a>
+  {% if user.is_authenticated %}
+    <a href="{% url 'player_dashboard' %}" data-menu-close>My dashboard</a>
+    {% if user.is_approved_organizer %}<a href="{% url 'organizer_dashboard' %}" data-menu-close>Organize</a>{% endif %}
+    <a class="btn btn--primary" href="{% url 'logout' %}" data-menu-close>Log out</a>
+  {% else %}
+    <a href="{% url 'login' %}" data-menu-close>Log in</a>
+    <a class="btn btn--primary" href="{% url 'signup' %}" data-menu-close>Sign up</a>
+  {% endif %}
+</nav>

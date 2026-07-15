@@ -1,0 +1,16 @@
+{% if ticker_fixtures %}
+<div class="ticker" aria-label="Live scores">
+  <div class="ticker__label"><span class="live__dot"></span> Live</div>
+  <div class="ticker__view"><div class="ticker__track" data-ticker>
+    {% for fx in ticker_fixtures %}
+      {% with ps=fx.ordered_participants|slice:':2' %}
+      <a class="ticker__item" href="{{ fx.get_absolute_url }}">
+        <span class="dot" style="background:var(--{{ fx.tournament.sport.sp_class }})"></span>
+        {% for p in ps %}<b>{{ p.name }}</b>{% if p.score is not None %} <span class="sc">{{ p.score|floatformat:'-2' }}</span>{% endif %}{% if not forloop.last %} <span style="color:#8b93b4">vs</span> {% endif %}{% endfor %}
+        <span style="color:#8b93b4">· {{ fx.round_name }}</span>
+      </a>
+      {% endwith %}
+    {% endfor %}
+  </div></div>
+</div>
+{% endif %}

@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}{{ tournament.name }} — TournamentSC{% endblock %}
+{% block content %}
+<div class="wrap">
+  <a class="back" href="/browse"><svg class="ico" style="width:16px;height:16px;transform:rotate(180deg)"><use href="#i-arrow"/></svg> Back to tournaments</a>
+
+  <div class="dhero {{ tournament.sport.sp_class }}">
+    <div class="dhero__cover {{ tournament.sport.sp_class }}">
+      {% if tournament.banner_image %}<img src="{{ tournament.banner_image.url }}" alt="{{ tournament.name }}">{% else %}<svg class="ico"><use href="#{{ tournament.sport.icon_symbol }}"/></svg>{% endif %}
+    </div>
+    <div class="dhero__body">
+      <div class="dhero__tags">
+        <span class="tag {{ tournament.sport.sp_class }}">{{ tournament.sport.name }}</span>
+        <span class="tag tag--plain">{{ tournament.get_format_display }}</span>
+        {% if tournament.status == 'ONGOING' %}<span class="live"><span class="live__dot"></span> Live now</span>
+        {% elif tournament.status == 'CANCELLED' %}<span class="badge badge-cancelled">Cancelled</span>
+        {% elif tournament.status == 'COMPLETED' %}<span class="badge badge-completed">Completed</span>{% endif %}
+      </div>
+      <h1>{{ tournament.name }}</h1>
+      <div class="dhero__meta">
+        <span><svg class="ico"><use href="#i-pin"/></svg> {% if tournament.venue %}{{ tournament.venue.name }}, {{ tournament.venue.city }}{% else %}{{ tournament.city|default:'—' }}{% endif %}</span>
+        <span><svg class="ico"><use href="#i-cal"/></svg> {{ tournament.start_date|date:'M j' }} – {{ tournament.end_date|date:'M j, Y' }}</span>
+        <span><svg class="ico"><use href="#i-users"/></svg> {{ entries|length }} {% if tournament.is_team_based %}teams{% else %}entrants{% endif %}</span>
+        {% if tournament.prize_pool %}<span><svg class="ico"><use href="#i-trophy"/></svg> ₹{{ tournament.prize_pool|floatformat:'-2' }} prize pool</span>{% endif %}
+        {% if tournament.entry_fee %}<span><svg class="ico"><use href="#i-flag"/></svg> ₹{{ tournament.entry_fee|floatformat:'-2' }} entry</span>{% endif %}
+        {% if follower_count %}<span><svg class="ico"><use href="#i-bell"/></svg> {{ follower_count }} follower{{ follower_count|pluralize }}</span>{% endif %}
+        <span class="dim">by {{ tournament.organizer.user.display_name }}{% if tournament.organizer.user.is_verified %} <span class="verified">✔</span>{% endif %}</span>
+      </div>
+
+      <div class="dhero__actions">
+        {% if is_owner %}
+          <a class="btn btn--primary" href="{% url 'tournament_manage' tournament.slug %}">Manage tournament</a>
+        {% elif user.is_authenticated and not user.is_staff and can_join %}
+          <a class="btn btn--primary" href="{% url 'tournament_join' tournament.slug %}">
+            {% if tournament.is_team_based %}Register a team{% else %}Register{% endif %}
+          </a>
+        {% elif not user.is_authenticated and can_join %}
+          <a class="btn btn--secondary" href="{% url 'player_login' %}?next={% url 'tournament_join' tournament.slug %}">
+            <svg class="ico"><use href="#i-users"/></svg> Sign in to join
+          </a>
+        {% endif %}
+
+        {# Follow — the audience's way in. Anonymous visitors get pointed at the door. #}
+        {% if user.is_authenticated and not user.is_staff %}
+          <form method="post" action="{% url 'tournament_follow' tournament.slug %}">
+            {% csrf_token %}
+            <button class="btn btn--secondary {% if is_following %}btn--active{% endif %}" type="submit"
+                    aria-pressed="{% if is_following %}true{% else %}false{% endif %}">
+              <svg class="ico"><use href="#i-bell"/></svg> {% if is_following %}Following{% else %}Follow{% endif %}
+            </button>
+          </form>
+        {% elif not user.is_authenticated %}
+          <a class="btn btn--secondary" href="{% url 'player_login' %}?next={{ request.path|urlencode }}">
+            <svg class="ico"><use href="#i-bell"/></svg> Follow
+          </a>
+        {% endif %}
+
+        {% if yt_id or tournament.youtube_url %}
+          <a class="btn btn--secondary" href="{{ tournament.youtube_url }}" target="_blank" rel="noopener">
+            <svg class="ico"><use href="#i-play"/></svg> Watch live
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if tournament.status == 'CANCELLED' %}<div class="msg error" style="margin-top:16px">This tournament has been cancelled.</div>{% endif %}
+
+  <div data-tabs>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="overview" aria-selected="true">Overview</button>
+      {% if bracket_rounds %}<button class="tab" data-tab="bracket">Bracket</button>
+      {% elif standings %}<button class="tab" data-tab="standings">Standings</button>
+      {% elif leaderboard %}<button class="tab" data-tab="leaderboard">Leaderboard</button>{% endif %}
+      <button class="tab" data-tab="fixtures">Fixtures</button>
+      <button class="tab" data-tab="entrants">{% if tournament.is_team_based %}Teams{% else %}Entrants{% endif %}</button>
+      {% if highlights %}<button class="tab" data-tab="highlights">Highlights</button>{% endif %}
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="tabpanel on" data-panel="overview">
+      <div class="facts">
+        <div class="fact"><div class="k">Format</div><div class="v">{{ tournament.get_format_display }}</div></div>
+        <div class="fact"><div class="k">{% if tournament.is_team_based %}Teams{% else %}Entrants{% endif %}</div><div class="v">{{ entries|length }}</div></div>
+        <div class="fact"><div class="k">Status</div><div class="v">{{ tournament.get_status_display }}</div></div>
+        <div class="fact"><div class="k">Fixtures</div><div class="v">{{ fixtures|length }}</div></div>
+        {% if tournament.prize_pool %}<div class="fact"><div class="k">Prize pool</div><div class="v">₹{{ tournament.prize_pool|floatformat:'-2' }}</div></div>{% endif %}
+        {% if tournament.entry_fee %}<div class="fact"><div class="k">Entry fee</div><div class="v">₹{{ tournament.entry_fee|floatformat:'-2' }}</div></div>{% endif %}
+      </div>
+
+      {% if tournament.description %}<p class="about">{{ tournament.description|linebreaks }}</p>{% endif %}
+
+      {% if tournament.rules %}
+        <div class="tblcard" style="margin-top:20px; max-width:68ch">
+          <h4>Rules &amp; format</h4>
+          <div style="padding:16px 18px"><p class="about" style="max-width:none">{{ tournament.rules|linebreaks }}</p></div>
+        </div>
+      {% endif %}
+
+      {% if yt_id %}<div class="embed" style="margin-top:20px;max-width:720px"><iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0" allowfullscreen title="Stream"></iframe></div>{% endif %}
+    </div>
+
+    <!-- BRACKET -->
+    {% if bracket_rounds %}
+    <div class="tabpanel" data-panel="bracket">
+      {% include 'public/_bracket.html' %}
+      <p class="dim" style="margin-top:14px;font-size:13px">Winners advance the moment a score is finalized.</p>
+    </div>
+    {% endif %}
+
+    <!-- STANDINGS -->
+    {% if standings %}
+    <div class="tabpanel" data-panel="standings">
+      {% include 'public/_standings_table.html' %}
+    </div>
+    {% endif %}
+
+    <!-- LEADERBOARD -->
+    {% if leaderboard %}
+    <div class="tabpanel" data-panel="leaderboard">
+      {% include 'public/_leaderboard_table.html' %}
+    </div>
+    {% endif %}
+
+    <!-- FIXTURES -->
+    <div class="tabpanel" data-panel="fixtures">
+      {% if fixtures %}
+        <div class="flist">
+          {% for fx in fixtures %}
+            {% with ps=fx.ordered_participants %}
+            <a class="frow" href="{{ fx.get_absolute_url }}" style="text-decoration:none">
+              <span class="ft {% if ps.0.result_chip == 'l' %}lose{% endif %}">{{ ps.0.name|default:'TBD' }}</span>
+              <span class="fm">
+                {% if fx.status == 'SCHEDULED' or fx.status == 'POSTPONED' %}
+                  <span class="fw">{% if fx.scheduled_time %}{{ fx.scheduled_time|date:'d M · H:i' }}{% else %}Time TBD{% endif %}{% if fx.venue_detail %} · {{ fx.venue_detail }}{% endif %}</span><br>
+                  <span class="fchip up">{{ fx.round_name|default:'Up next' }}</span>
+                {% else %}
+                  <span class="fsc">{% for p in ps|slice:':2' %}{{ p.score|default_if_none:'–'|floatformat:'-2' }}{% if not forloop.last %}-{% endif %}{% endfor %}</span><br>
+                  {% if fx.status == 'LIVE' %}<span class="fchip live">Live</span>
+                  {% elif fx.status == 'CANCELLED' %}<span class="fchip done">Cancelled</span>
+                  {% else %}<span class="fchip done">{{ fx.round_name|default:'Full time' }}</span>{% endif %}
+                {% endif %}
+              </span>
+              <span class="ft r {% if ps.1.result_chip == 'l' %}lose{% endif %}">{{ ps.1.name|default:'—' }}</span>
+            </a>
+            {% endwith %}
+          {% endfor %}
+        </div>
+      {% else %}<div class="empty">Fixtures haven't been published yet.</div>{% endif %}
+    </div>
+
+    <!-- ENTRANTS -->
+    <div class="tabpanel" data-panel="entrants">
+      <div class="card-grid">
+        {% for e in entries %}
+          <div class="panel"><strong>{% if tournament.is_team_based %}{{ e.team.name }}{% else %}{{ e.name }}{% endif %}</strong>{% if e.seed %}<div class="dim mono" style="font-size:12px">seed {{ e.seed }}</div>{% endif %}</div>
+        {% empty %}<div class="empty">No participants yet.</div>{% endfor %}
+      </div>
+    </div>
+
+    <!-- HIGHLIGHTS -->
+    {% if highlights %}
+    <div class="tabpanel" data-panel="highlights">
+      <div class="hl-grid">
+        {% for h in highlights %}
+          <a class="hlcard" href="{% if h.fixture %}{{ h.fixture.get_absolute_url }}{% else %}#{% endif %}">
+            <div class="hlcard__thumb {{ tournament.sport.sp_class }}">{% if h.image %}<img src="{{ h.image.url }}" alt="">{% else %}<svg class="ico sport"><use href="#{{ tournament.sport.icon_symbol }}"/></svg>{% endif %}<span class="hlcard__play"><svg class="ico"><use href="#i-play"/></svg></span></div>
+            <div class="hlcard__body"><div class="hlcard__title">{{ h.title }}</div>{% if h.best_performer %}<div class="hlcard__meta">⭐ {{ h.best_performer }}</div>{% endif %}</div>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

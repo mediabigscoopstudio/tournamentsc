@@ -1,0 +1,67 @@
+{% extends 'dash/base.html' %}
+{% load formtags %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+
+<div class="dash-head">
+  <h1>Settings</h1>
+  <p class="muted">Site identity and application behaviour. Last updated
+    {{ conf.updated_at|date:'d M Y, H:i' }}{% if conf.updated_by %} by {{ conf.updated_by.display_name }}{% endif %}.</p>
+</div>
+
+<form method="post" class="dform">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="msg error">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+  {% endif %}
+
+  <div class="panel tblcard">
+    <h3>Site settings</h3>
+    <p class="muted" style="margin-bottom:14px">Public identity — shown to the audience.</p>
+    {% for field in form %}
+      {% if field.name == 'site_name' or field.name == 'tagline' or field.name == 'support_email' or field.name == 'contact_phone' or field.name == 'meta_description' %}
+        <div class="field {% if field.errors %}has-error{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field|add_class:'input' }}
+          {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+          {% for e in field.errors %}<div class="errorlist">{{ e }}</div>{% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="panel tblcard" style="margin-top:20px">
+    <h3>Application settings</h3>
+    <p class="muted" style="margin-bottom:14px">Who can register, how organizers are approved, and how the live site behaves.</p>
+    {% for field in form %}
+      {% if field.name == 'allow_player_registration' or field.name == 'allow_organizer_registration' or field.name == 'auto_approve_organizers' or field.name == 'maintenance_mode' %}
+        <div class="field-check {% if field.errors %}has-error{% endif %}">
+          {{ field }}
+          <label for="{{ field.id_for_label }}">
+            <strong>{{ field.label }}</strong>
+            {% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}
+          </label>
+          {% for e in field.errors %}<div class="errorlist">{{ e }}</div>{% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    {% for field in form %}
+      {% if field.name == 'maintenance_message' or field.name == 'live_score_poll_seconds' or field.name == 'featured_limit' %}
+        <div class="field {% if field.errors %}has-error{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field|add_class:'input' }}
+          {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+          {% for e in field.errors %}<div class="errorlist">{{ e }}</div>{% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="row-flex" style="margin-top:22px">
+    <button class="btn btn-primary" type="submit">Save settings</button>
+    <a class="btn btn-ghost" href="/dashboard/">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

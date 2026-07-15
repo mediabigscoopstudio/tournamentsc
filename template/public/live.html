@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Live scores — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head">
+    <div><h2>Live right now</h2><p>Every match in play, across every sport. No account needed.</p></div>
+    <a class="sec-head__link" href="{% url 'browse' %}?status=ONGOING">Live tournaments</a>
+  </div>
+
+  {% if fixtures %}
+    {% include 'public/_fixture_list.html' with fixtures=fixtures %}
+  {% else %}
+    <div class="empty">
+      Nothing is live at the moment. <a href="{% url 'browse' %}">See what's coming up.</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

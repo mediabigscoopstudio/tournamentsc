@@ -1,0 +1,28 @@
+{% comment %}
+Single-elimination bracket + champion column. Shared by the detail tab and the
+standalone standings page. Context: bracket_rounds, champion
+{% endcomment %}
+<div class="bwrap"><div class="bracket">
+  {% for rnd in bracket_rounds %}
+    <div class="round">
+      <div class="round__h">{{ rnd.name }}</div>
+      {% for fx in rnd.fixtures %}
+        <a class="bm" href="{{ fx.get_absolute_url }}">
+          {% for p in fx.participants.all %}
+            <div class="bm__r {% if p.is_winner %}win{% endif %}">
+              <span class="nm">{{ p.name }}</span>
+              <span class="sc">{{ p.score|default_if_none:'–'|floatformat:'-2' }}</span>
+            </div>
+          {% endfor %}
+        </a>
+      {% endfor %}
+    </div>
+  {% endfor %}
+
+  <div class="round champ">
+    <div class="round__h">Champion</div>
+    <div class="champ__cup"><svg class="ico" style="width:28px;height:28px"><use href="#i-trophy"/></svg></div>
+    <span class="champ__lbl">{% if champion %}Winner{% else %}To be decided{% endif %}</span>
+    <span class="champ__nm">{% if champion %}{{ champion.name }}{% else %}—{% endif %}</span>
+  </div>
+</div></div>

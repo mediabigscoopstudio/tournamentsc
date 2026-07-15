@@ -1,0 +1,24 @@
+<a class="tcard {{ card_extra }}" href="{{ t.get_absolute_url }}" data-sport="{{ t.sport.slug }}">
+  <div class="tcard__cover {{ t.sport.sp_class }}">
+    {% if t.banner_image %}<img src="{{ t.banner_image.url }}" alt="{{ t.name }}">{% endif %}
+    {% if t.status == 'ONGOING' %}<span class="live"><span class="live__dot"></span> Live</span>{% endif %}
+    <svg class="ico"><use href="#{{ t.sport.icon_symbol }}"/></svg>
+    <span class="when">{{ t.start_date|date:'M j' }}</span>
+  </div>
+  <div class="tcard__body">
+    <div class="tcard__tags">
+      <span class="tag {{ t.sport.sp_class }}">{{ t.sport.name }}</span>
+      <span class="tag tag--plain">{{ t.get_format_display }}</span>
+    </div>
+    <div class="tcard__title">{{ t.name }}</div>
+    <ul class="tcard__meta">
+      <li><svg class="ico"><use href="#i-pin"/></svg> {% if t.venue %}{{ t.venue.name }}{% else %}{{ t.city|default:'—' }}{% endif %}</li>
+      <li><svg class="ico"><use href="#i-cal"/></svg> {{ t.start_date|date:'M j' }}{% if t.end_date != t.start_date %} – {{ t.end_date|date:'M j' }}{% endif %}</li>
+      {% if t.prize_pool %}<li><svg class="ico"><use href="#i-trophy"/></svg> ₹{{ t.prize_pool|floatformat:'-2' }} prize pool</li>{% endif %}
+    </ul>
+    <div class="tcard__foot">
+      <span class="tcard__teams"><b>{{ t.participant_count }}</b> {% if t.is_team_based %}teams{% else %}entrants{% endif %}</span>
+      <span class="go">View <svg class="ico" style="width:15px;height:15px"><use href="#i-arrow"/></svg></span>
+    </div>
+  </div>
+</a>

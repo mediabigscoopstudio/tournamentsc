@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}News — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head">
+    <div><h2>News</h2><p>Reports, features and announcements from around the platform.</p></div>
+  </div>
+
+  {% if page.object_list %}
+    <div class="card-grid">
+      {% for a in page.object_list %}
+        <a class="hlcard" href="{{ a.get_absolute_url }}">
+          <div class="hlcard__thumb {% if a.sport %}{{ a.sport.sp_class }}{% endif %}">
+            {% if a.cover_image %}<img src="{{ a.cover_image.url }}" alt="">
+            {% elif a.sport %}<svg class="ico sport"><use href="#{{ a.sport.icon_symbol }}"/></svg>{% endif %}
+          </div>
+          <div class="hlcard__body">
+            <div class="hlcard__title">{{ a.title }}</div>
+            <div class="hlcard__meta">{{ a.published_at|date:'d M Y' }}{% if a.sport %} · {{ a.sport.name }}{% endif %}</div>
+            {% if a.summary %}<p class="muted" style="margin-top:6px">{{ a.summary }}</p>{% endif %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if page.has_other_pages %}
+      <div class="pager" style="margin-top:24px">
+        {% if page.has_previous %}<a class="btn btn--secondary btn--sm" href="?page={{ page.previous_page_number }}">← Previous</a>{% endif %}
+        <span class="dim">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn btn--secondary btn--sm" href="?page={{ page.next_page_number }}">Next →</a>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="empty">No news published yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

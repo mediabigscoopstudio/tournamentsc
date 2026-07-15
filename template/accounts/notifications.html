@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Notifications — TournamentSC{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:640px">
+  <h1>Notifications</h1>
+  <div class="stack" style="margin-top:20px">
+    {% for n in items %}
+      <a class="panel row-flex" style="justify-content:space-between" href="{{ n.url|default:'#' }}">
+        <span>{{ n.message }}</span>
+        <span class="dim mono" style="font-size:12px">{{ n.created_at|date:'M j, H:i' }}</span>
+      </a>
+    {% empty %}
+      <div class="empty">No notifications yet.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

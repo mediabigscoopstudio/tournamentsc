@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Register as an organizer — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:480px">
+  <div class="eyebrow">🎪 Organizer</div>
+  <h1>Create your organizer account</h1>
+  <p class="muted">
+    {% if site_conf.auto_approve_organizers %}
+      You'll be able to create tournaments right away.
+    {% else %}
+      After you sign up we'll ask a couple of questions about the events you run.
+      An admin reviews organizer accounts before your tournaments go live.
+    {% endif %}
+  </p>
+
+  <form method="post" class="panel tblcard" style="margin-top:20px">
+    {% csrf_token %}
+    {% include 'partials/form.html' %}
+    <button class="btn btn-primary btn-block" type="submit">Create account</button>
+  </form>
+
+  <p class="dim center" style="margin-top:16px">
+    Already an organizer? <a href="/organizer/login">Log in</a>
+  </p>
+  <p class="dim center" style="margin-top:8px; font-size:13px">
+    Just want to compete? <a href="/player/register">Register as a player</a>
+  </p>
+</section>
+{% endblock %}

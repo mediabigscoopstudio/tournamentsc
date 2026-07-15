@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{{ team.name }} — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <a class="back" href="{% url 'teams_list' %}">
+    <svg class="ico" style="width:16px;height:16px;transform:rotate(180deg)"><use href="#i-arrow"/></svg> All teams
+  </a>
+
+  <div class="spread" style="margin-top:14px">
+    <div>
+      <span class="tag {{ team.sport.tag_class }}">{{ team.sport.icon }} {{ team.sport.name }}</span>
+      <h1 style="margin:10px 0 0">{{ team.name }}</h1>
+      {% if team.captain %}<p class="muted">Captain: {{ team.captain.user.display_name }}</p>{% endif %}
+    </div>
+    {% if team.logo %}<img src="{{ team.logo.url }}" alt="{{ team.name }}" style="width:88px;height:88px;object-fit:cover;border-radius:12px">{% endif %}
+  </div>
+
+  <div class="two-col" style="margin-top:26px; align-items:start">
+    <div class="panel tblcard">
+      <h3>Roster</h3>
+      <ul class="stack" style="margin-top:12px; padding-left:16px">
+        {% for m in roster %}
+          <li>
+            {% if m.player %}<a href="{% url 'player_public' m.player.pk %}">{{ m.name }}</a>{% else %}{{ m.name }}{% endif %}
+            {% if m.jersey_number %}<span class="mono dim">#{{ m.jersey_number }}</span>{% endif %}
+            {% if m.role == 'CAPTAIN' %}<span class="badge badge-upcoming">Captain</span>{% endif %}
+            {% if not m.is_approved %}<span class="badge badge-draft">pending</span>{% endif %}
+          </li>
+        {% empty %}<li class="dim">No roster published.</li>{% endfor %}
+      </ul>
+    </div>
+
+    <div class="panel tblcard">
+      <h3>Tournaments</h3>
+      <div class="stack" style="margin-top:12px">
+        {% for e in entries %}
+          <a class="fixture-row" href="{{ e.tournament.get_absolute_url }}">
+            <span>{{ e.tournament.name }}</span>
+            {% include 'partials/status_badge.html' with status=e.tournament.status %}
+          </a>
+        {% empty %}<p class="dim">Not entered in any tournament yet.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:30px">Matches</h3>
+  {% if fixtures %}
+    {% include 'public/_fixture_list.html' with fixtures=fixtures %}
+  {% else %}
+    <div class="empty">No matches yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

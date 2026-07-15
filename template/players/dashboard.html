@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}My dashboard — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="spread">
+    <div>
+      <div class="eyebrow">🏃 Player</div>
+      <h1>Hi, {{ profile.user.display_name }}</h1>
+    </div>
+    <div class="row-flex">
+      <a class="btn btn-secondary btn-sm" href="{% url 'profile_edit' %}">Edit profile</a>
+      {% if user.is_approved_organizer %}
+        <a class="btn btn-primary btn-sm" href="{% url 'organizer_dashboard' %}">Organizer dashboard</a>
+      {% elif user.has_organizer_profile %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'organizer_status' %}">Organizer status</a>
+      {% else %}
+        <a class="btn btn-ghost btn-sm" href="{% url 'organizer_apply' %}">Become an organizer</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stat-grid" style="margin-top:22px">
+    <a class="stat" href="{% url 'my_tournaments' %}"><div class="n brand">{{ joined_count }}</div><div class="l">Tournaments joined</div></a>
+    <a class="stat" href="{% url 'my_schedule' %}"><div class="n">{{ schedule|length }}</div><div class="l">Upcoming matches</div></a>
+    <a class="stat" href="{% url 'my_results' %}"><div class="n">{{ results|length }}</div><div class="l">Recent results</div></a>
+    <a class="stat" href="{% url 'my_following' %}"><div class="n">{{ following_count }}</div><div class="l">Following</div></a>
+  </div>
+
+  <div class="two-col" style="margin-top:24px; align-items:start">
+    <div class="panel tblcard">
+      <div class="spread"><h3>Upcoming matches</h3><a href="{% url 'my_schedule' %}">All</a></div>
+      <div class="stack" style="margin-top:12px">
+        {% for fx in schedule %}
+          <a class="fixture-row" href="{{ fx.get_absolute_url }}">
+            <span>{{ fx.tournament.name }} · {{ fx.round_name|default:'Fixture' }}</span>
+            <span class="dim">{{ fx.scheduled_time|date:'d M, H:i'|default:'TBD' }}</span>
+          </a>
+        {% empty %}
+          <p class="dim">No upcoming matches. <a href="{% url 'browse' %}">Find a tournament to join.</a></p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel tblcard">
+      <div class="spread"><h3>Recent results</h3><a href="{% url 'my_results' %}">All</a></div>
+      <div class="stack" style="margin-top:12px">
+        {% for fx in results %}
+          <a class="fixture-row" href="{{ fx.get_absolute_url }}">
+            <span>{{ fx.tournament.name }}</span><span class="badge badge-completed">Final</span>
+          </a>
+        {% empty %}<p class="dim">No results yet.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if upcoming %}
+  <div class="sec-head" style="margin-top:34px">
+    <div><h2>Open for registration</h2><p>Tournaments you can still join.</p></div>
+    <a class="sec-head__link" href="{% url 'browse' %}">Browse all</a>
+  </div>
+  <div class="card-grid">
+    {% for t in upcoming %}{% include 'partials/tournament_card.html' with t=t %}{% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

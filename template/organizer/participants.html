@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load formtags %}
+{% block title %}Participants — {{ tournament.name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <a href="{% url 'tournament_manage' tournament.slug %}" class="dim">← Manage {{ tournament.name }}</a>
+  <h1 style="margin-top:12px">Participants</h1>
+  {% if tournament.fixtures_generated %}
+    <div class="msg warning">Fixtures already exist — regenerate them after changing participants.</div>
+  {% endif %}
+
+  <div class="two-col" style="margin-top:20px; align-items:start">
+    <div class="stack">
+      {% if tournament.is_team_based %}
+        {% for e in entries %}
+          <div class="panel tblcard">
+            <div class="spread">
+              <div>
+                <h3 style="display:inline">{{ e.team.name }}</h3>
+                <span class="badge badge-{{ e.get_status_display|slugify }}">{{ e.get_status_display }}</span>
+              </div>
+              <div class="row-flex">
+                {% if e.status != 'APPROVED' %}
+                  <form method="post" action="{% url 'entry_decide' tournament.slug 'team' e.id 'approve' %}">
+                    {% csrf_token %}<button class="btn btn-primary btn-sm">Approve</button>
+                  </form>
+                {% endif %}
+                {% if e.status != 'REJECTED' %}
+                  <form method="post" action="{% url 'entry_decide' tournament.slug 'team' e.id 'reject' %}">
+                    {% csrf_token %}<button class="btn btn-secondary btn-sm">Reject</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="{% url 'entry_decide' tournament.slug 'team' e.id 'remove' %}"
+                      onsubmit="return confirm('Remove this team from the tournament?')">
+                  {% csrf_token %}<button class="btn btn-ghost btn-sm">Remove</button>
+                </form>
+              </div>
+            </div>
+
+            <ul class="stack" style="margin:12px 0; padding-left:16px">
+              {% for m in e.team.memberships.all %}
+                <li>{{ m.name }}{% if m.jersey_number %} <span class="mono dim">#{{ m.jersey_number }}</span>{% endif %}
+                  {% if not m.is_approved %}<span class="badge badge-upcoming">pending</span>{% endif %}</li>
+              {% empty %}<li class="dim">No members yet.</li>{% endfor %}
+            </ul>
+
+            <form method="post" action="{% url 'team_member_add' tournament.slug e.team.id %}" class="row-flex">
+              {% csrf_token %}
+              <input class="input" name="display_name" placeholder="Player name" required style="max-width:200px">
+              <input class="input" name="jersey_number" placeholder="#" style="max-width:70px">
+              <button class="btn btn-secondary btn-sm">Add member</button>
+            </form>
+          </div>
+        {% empty %}
+          <div class="empty">No teams yet. Add one on the right.</div>
+        {% endfor %}
+      {% else %}
+        <div class="table-wrap tblcard">
+          <table class="dtable">
+            <thead><tr><th>Name</th><th>Category</th><th>Bib</th><th>Seed</th><th>Status</th><th class="ta-r">Actions</th></tr></thead>
+            <tbody>
+              {% for r in registrations %}
+                <tr>
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.event_category.name|default:'—' }}</td>
+                  <td class="mono">{{ r.bib_number|default:'—' }}</td>
+                  <td class="mono">{{ r.seed|default:'—' }}</td>
+                  <td><span class="badge badge-{{ r.get_status_display|slugify }}">{{ r.get_status_display }}</span></td>
+                  <td class="ta-r">
+                    <div class="rowacts">
+                      {% if r.status != 'APPROVED' %}
+                        <form method="post" action="{% url 'entry_decide' tournament.slug 'individual' r.id 'approve' %}">
+                          {% csrf_token %}<button class="btn btn-primary btn-sm">Approve</button>
+                        </form>
+                      {% endif %}
+                      {% if r.status != 'REJECTED' %}
+                        <form method="post" action="{% url 'entry_decide' tournament.slug 'individual' r.id 'reject' %}">
+                          {% csrf_token %}<button class="btn btn-secondary btn-sm">Reject</button>
+                        </form>
+                      {% endif %}
+                      <form method="post" action="{% url 'entry_decide' tournament.slug 'individual' r.id 'remove' %}"
+                            onsubmit="return confirm('Remove this entrant?')">
+                        {% csrf_token %}<button class="btn btn-ghost btn-sm">✕</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6" class="muted">No entrants yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+
+    <aside>
+      <div class="panel tblcard">
+        {% if tournament.is_team_based %}
+          <h3>Add a team</h3>
+          <form method="post" enctype="multipart/form-data"
+                action="{% url 'team_add' tournament.slug %}" style="margin-top:12px">
+            {% csrf_token %}{% include 'partials/form.html' with form=team_form %}
+            <button class="btn btn-primary btn-block">Add team</button>
+          </form>
+        {% else %}
+          <h3>Add an entrant</h3>
+          <form method="post" action="{% url 'individual_add' tournament.slug %}" style="margin-top:12px">
+            {% csrf_token %}{% include 'partials/form.html' with form=entry_form %}
+            <button class="btn btn-primary btn-block">Add entrant</button>
+          </form>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

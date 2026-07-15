@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Join {{ tournament.name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:560px">
+  <a href="{{ tournament.get_absolute_url }}" class="dim">← {{ tournament.name }}</a>
+  <h1 style="margin-top:12px">Join this tournament</h1>
+
+  {% if tournament.is_team_based %}
+    {% if teams %}
+      <p class="muted">Request to join one of the teams below. The organizer will approve your request.</p>
+      <form method="post" class="panel tblcard stack" style="margin-top:20px">
+        {% csrf_token %}
+        <div class="field">
+          <label for="team_id">Choose a team</label>
+          <select name="team_id" id="team_id" class="input" required>
+            {% for e in teams %}<option value="{{ e.team.id }}">{{ e.team.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">Request to join</button>
+      </form>
+    {% else %}
+      <div class="empty" style="margin-top:20px">
+        The organizer hasn't added any teams to this tournament yet. Check back soon.
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="muted">Register yourself for this event.</p>
+    <form method="post" class="panel tblcard" style="margin-top:20px">
+      {% csrf_token %}
+      <button class="btn btn-primary btn-block" type="submit">Register now</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

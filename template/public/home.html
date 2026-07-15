@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero__bg"></div>
+  <div class="wrap hero__inner">
+    <div class="hero__copy">
+      <span class="hero__kicker"><span class="k1">Play.</span> <span class="k2">Compete.</span> <span class="k3">Conquer.</span></span>
+      <h1>Every sport finds <span class="u">its stage.</span></h1>
+      <p class="hero__sub">TournamentSC brings players, organizers and fans together to run and follow local tournaments across seven sports. Create an event, score it live, and give everyone a place to watch.</p>
+      <div class="hero__actions">
+        <a class="btn btn--primary btn--lg" href="/signup">Start a tournament <svg class="ico"><use href="#i-arrow"/></svg></a>
+        <a class="btn btn--onnavy btn--lg" href="#sports">Explore sports</a>
+      </div>
+      <div class="hero__stats">
+        <div class="hero__stat"><div class="n">{{ stats.tournaments }}<span class="u">+</span></div><div class="l">Tournaments</div></div>
+        <div class="hero__stat"><div class="n">{{ stats.players }}</div><div class="l">Players</div></div>
+        <div class="hero__stat"><div class="n">{{ stats.sports }}</div><div class="l">Sports</div></div>
+      </div>
+    </div>
+
+    {% if hero_fixture %}
+    <a class="hcard" href="{{ hero_fixture.get_absolute_url }}" style="text-decoration:none">
+      <div class="hcard__top"><span class="live"><span class="live__dot"></span> Live</span><span class="hcard__where">{{ hero_fixture.tournament.name|truncatechars:26 }}</span></div>
+      <div class="hcard__teams">
+        {% for p in hero_fixture.ordered_participants|slice:':2' %}
+          {% if forloop.first %}
+            <div class="hcard__team"><span class="hcard__crest {{ hero_fixture.tournament.sport.sp_class }}" style="background:var(--{{ hero_fixture.tournament.sport.sp_class }})">{{ p.initials }}</span><span class="hcard__nm">{{ p.name|truncatechars:12 }}</span><span class="hcard__sc">{{ p.score|default_if_none:'0'|floatformat:'-2' }}</span></div>
+            <span class="hcard__vs">VS</span>
+          {% else %}
+            <div class="hcard__team"><span class="hcard__crest">{{ p.initials }}</span><span class="hcard__nm">{{ p.name|truncatechars:12 }}</span><span class="hcard__sc">{{ p.score|default_if_none:'0'|floatformat:'-2' }}</span></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="hcard__meta">{{ hero_fixture.round_name }}{% if hero_fixture.venue_detail %} · {{ hero_fixture.venue_detail }}{% endif %}</div>
+
+      {% if hero_fixture.win_probability %}
+        {% with ps=hero_fixture.ordered_participants|slice:':2' %}
+          <div class="hcard__bar"><i style="width:{{ hero_fixture.win_probability }}%"></i></div>
+          <div class="hcard__prob">
+            <span>{{ ps.0.name|truncatechars:10 }} {{ hero_fixture.win_probability }}%</span>
+            <span>Win probability</span>
+            <span>{{ hero_fixture.win_probability_other }}% {{ ps.1.name|truncatechars:10 }}</span>
+          </div>
+        {% endwith %}
+      {% endif %}
+
+      <div class="hcard__foot"><span class="watch"><svg class="ico"><use href="#i-play"/></svg> Watch live</span><span class="mc">Match centre <svg class="ico" style="width:15px;height:15px"><use href="#i-arrow"/></svg></span></div>
+    </a>
+    {% endif %}
+  </div>
+</section>
+
+<!-- SPORTS -->
+<section id="sports">
+  <div class="wrap">
+    <div class="sec-head"><div><h2>Seven sports, one home</h2><p>Each sport runs with its own real format and scoring, from brackets to lap times.</p></div></div>
+    <div class="sports-grid">
+      {% for s in sports %}
+        <a class="sportcard {{ s.sp_class }}" href="{{ s.get_absolute_url }}">
+          <span class="sportcard__ic"><svg class="ico"><use href="#{{ s.icon_symbol }}"/></svg></span>
+          <div class="sportcard__nm">{{ s.name }}</div>
+          <div class="sportcard__meta">{% if s.n_live %}{{ s.n_live }} live now{% else %}{{ s.n_total }} event{{ s.n_total|pluralize }}{% endif %}</div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- LIVE NOW -->
+{% if live_fixtures %}
+<section id="live" class="bg-soft">
+  <div class="wrap">
+    <div class="sec-head"><div><h2>Live right now</h2><p>Follow scores the moment they change, across every sport.</p></div><a class="sec-head__link" href="/browse?status=ONGOING">See all live <svg class="ico" style="width:15px;height:15px"><use href="#i-arrow"/></svg></a></div>
+    <div class="rail">
+      {% for fx in live_fixtures %}
+        <a class="mcard" href="{{ fx.get_absolute_url }}">
+          <div class="mcard__top"><span class="tag {{ fx.tournament.sport.sp_class }}">{{ fx.tournament.sport.name }}</span><span class="live"><span class="live__dot"></span> Live</span></div>
+          {% for p in fx.ordered_participants|slice:':2' %}
+            <div class="mcard__row {% if forloop.first %}lead{% else %}trail{% endif %}">
+              <span class="nm"><span class="cr" style="background:var(--{{ fx.tournament.sport.sp_class }})">{{ p.initials }}</span> {{ p.name|truncatechars:16 }}</span>
+              <span class="sc">{{ p.score|default_if_none:'–'|floatformat:'-2' }}</span>
+            </div>
+          {% endfor %}
+          <div class="mcard__foot"><span class="st">{{ fx.round_name }}</span><span class="watch"><svg class="ico" style="width:14px;height:14px"><use href="#i-play"/></svg> Watch</span></div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- TOURNAMENTS -->
+<section id="tournaments">
+  <div class="wrap">
+    <div class="sec-head"><div><h2>Tournaments to follow</h2><p>Register your team, follow the bracket, or just watch.</p></div><a class="sec-head__link" href="/browse">Browse all <svg class="ico" style="width:15px;height:15px"><use href="#i-arrow"/></svg></a></div>
+    {% if featured or upcoming or live %}
+      <div class="tgrid">
+        {% for t in featured %}{% include 'partials/tournament_card.html' with card_extra='tcard--feat' %}{% endfor %}
+        {% for t in live %}{% if not t.is_featured %}{% include 'partials/tournament_card.html' %}{% endif %}{% endfor %}
+        {% for t in upcoming %}{% include 'partials/tournament_card.html' %}{% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No tournaments yet. <a href="/signup" style="color:var(--orange);font-weight:700">Start one</a>.</div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- FEATURES BENTO -->
+<section id="features" class="bg-soft">
+  <div class="wrap">
+    <div class="sec-head"><div><h2>Built to get more people playing</h2><p>Everything an organizer needs to run it, and everything a fan needs to follow it.</p></div></div>
+    <div class="bento">
+      <div class="bx bx--big">
+        <span class="kick"><svg class="ico" style="width:14px;height:14px"><use href="#i-bolt"/></svg> All seven sports</span>
+        <h3>Real formats, real scoring</h3>
+        <p>Not one generic scoreboard. Basketball quarters, badminton games, chess round-robins with points, esports placement and kills, racing lap times, and marathon timings — each scored the way it is really played.</p>
+        <div class="chips-mini"><span>Brackets</span><span>Points tables</span><span>Leaderboards</span><span>Lap times</span><span>Bib timing</span></div>
+      </div>
+      <div class="bx"><div class="bx__ic ic-o"><svg class="ico"><use href="#i-bolt"/></svg></div><h3>Live scoring</h3><p>Organizers update scores from the app. Tables and brackets refresh on the spot.</p></div>
+      <div class="bx"><div class="bx__ic ic-b"><svg class="ico"><use href="#i-cast"/></svg></div><h3>Watch live</h3><p>Attach a YouTube link and fans tap Watch straight from the match.</p></div>
+      <div class="bx"><div class="bx__ic ic-g"><svg class="ico"><use href="#i-bell"/></svg></div><h3>Player alerts</h3><p>Match time, court and result reach every player in-app.</p></div>
+      <div class="bx"><div class="bx__ic ic-p"><svg class="ico"><use href="#i-users"/></svg></div><h3>Teams and players</h3><p>Add squads and players, or open registration and let them join.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HIGHLIGHTS -->
+{% if highlights %}
+<section id="highlights">
+  <div class="wrap">
+    <div class="sec-head"><div><h2>Catch up on the action</h2><p>Missed a tournament? Match overviews and highlights are ready to watch.</p></div></div>
+    <div class="hl-grid">
+      {% for h in highlights %}
+        <a class="hlcard" href="{% if h.fixture %}{{ h.fixture.get_absolute_url }}{% else %}{{ h.tournament.get_absolute_url }}{% endif %}">
+          <div class="hlcard__thumb {{ h.tournament.sport.sp_class }}">
+            {% if h.image %}<img src="{{ h.image.url }}" alt="">{% else %}<svg class="ico sport"><use href="#{{ h.tournament.sport.icon_symbol }}"/></svg>{% endif %}
+            <span class="hlcard__play"><svg class="ico"><use href="#i-play"/></svg></span>
+            {% if h.duration_display %}<span class="hlcard__dur">{{ h.duration_display }}</span>{% endif %}
+          </div>
+          <div class="hlcard__body"><span class="tag {{ h.tournament.sport.sp_class }}">{{ h.tournament.sport.name }}</span>
+            <div class="hlcard__title">{{ h.title }}</div>
+            <div class="hlcard__meta">{{ h.published_at|date:'M j' }} · {{ h.views_display }} view{{ h.view_count|pluralize }}</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ORGANIZER -->
+<section id="organize">
+  <div class="wrap">
+    <div class="org">
+      <div class="org__bg"></div>
+      <div class="org__head"><h2>Run your next tournament on TournamentSC</h2><p>Set it up in minutes, let the fixtures sort themselves, and give every player and fan a live home for the event.</p></div>
+      <ol class="steps">
+        <li class="step"><span class="step__n">1</span><h4>Create the event</h4><p>Pick a sport, set dates and venue, add a poster.</p></li>
+        <li class="step"><span class="step__n">2</span><h4>Add teams and players</h4><p>Enter squads and players, or open registration.</p></li>
+        <li class="step"><span class="step__n">3</span><h4>Generate fixtures</h4><p>Brackets, points tables, leaderboards — built for your sport.</p></li>
+        <li class="step"><span class="step__n">4</span><h4>Score live and share</h4><p>Update results from the app and go live on YouTube.</p></li>
+      </ol>
+      <div class="hero__actions">
+        <a class="btn btn--primary btn--lg" href="/signup">Create a tournament <svg class="ico"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% if status == 'ONGOING' %}<span class="badge badge-live"><span class="badge-dot"></span>Live</span>
+{% elif status == 'PUBLISHED' %}<span class="badge badge-upcoming">Upcoming</span>
+{% elif status == 'COMPLETED' %}<span class="badge badge-completed">✓ Completed</span>
+{% elif status == 'CANCELLED' %}<span class="badge badge-cancelled">✕ Cancelled</span>
+{% else %}<span class="badge badge-draft">Draft</span>{% endif %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}{{ article.title }} — {{ site_conf.site_name }}{% endblock %}
+{% block meta_description %}{{ article.summary|default:article.title }}{% endblock %}
+{% block content %}
+<article class="section wrap" style="max-width:760px">
+  <a class="back" href="{% url 'news_list' %}">
+    <svg class="ico" style="width:16px;height:16px;transform:rotate(180deg)"><use href="#i-arrow"/></svg> All news
+  </a>
+
+  <div class="dhero__tags" style="margin-top:14px">
+    {% if article.sport %}<span class="tag {{ article.sport.sp_class }}">{{ article.sport.name }}</span>{% endif %}
+    <span class="tag tag--plain">{{ article.published_at|date:'d M Y' }}</span>
+  </div>
+
+  <h1 style="margin-top:10px">{{ article.title }}</h1>
+  {% if article.summary %}<p class="muted" style="font-size:18px">{{ article.summary }}</p>{% endif %}
+
+  {% if article.cover_image %}
+    <img src="{{ article.cover_image.url }}" alt="{{ article.title }}"
+         style="width:100%; border-radius:var(--r-lg); margin:22px 0">
+  {% endif %}
+
+  <div class="about">{{ article.body|linebreaks }}</div>
+
+  {% if article.tournament %}
+    <div class="panel tblcard" style="margin-top:26px">
+      <div class="spread">
+        <div><strong>{{ article.tournament.name }}</strong>
+          <div class="muted">{{ article.tournament.sport.name }}</div></div>
+        <a class="btn btn--primary btn--sm" href="{{ article.tournament.get_absolute_url }}">View tournament</a>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if more %}
+    <h3 style="margin-top:34px">More news</h3>
+    <div class="stack" style="margin-top:12px">
+      {% for a in more %}
+        <a class="fixture-row" href="{{ a.get_absolute_url }}">
+          <span>{{ a.title }}</span>
+          <span class="dim">{{ a.published_at|date:'d M' }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</article>
+{% endblock %}

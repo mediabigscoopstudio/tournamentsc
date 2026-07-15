@@ -1,0 +1,52 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block page_title %}Admin{% endblock %} — {{ site_conf.site_name }}</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;0,900;1,800;1,900&family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/dash.css' %}">
+</head>
+<body>
+<div class="dash-shell">
+  <aside class="dash-side" id="dash-side">
+    <a href="/dashboard/" class="brand-logo" style="margin-bottom:8px">
+      <img src="{% static 'images/logo.png' %}" alt="{{ site_conf.site_name }}">
+    </a>
+    <div class="kicker">Admin console</div>
+
+    <nav class="dash-nav">
+      <a href="/dashboard/" class="{% if active == 'home' %}active{% endif %}">
+        <span class="ic">📊</span> Overview
+      </a>
+      {% for group in nav_groups %}
+        <div class="dash-nav__grp">{{ group.name }}</div>
+        {% for item in group.items %}
+          <a href="{{ item.url }}" class="{% if active == item.key %}active{% endif %}">
+            <span class="ic">{{ item.icon }}</span> {{ item.label }}
+            {% if item.key == 'applications' and pending_apps %}<span class="nav-count">{{ pending_apps }}</span>{% endif %}
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+
+    <div class="side-foot">
+      <div class="muted">{{ user.display_name }}</div>
+      <div class="dim" style="font-size:12px">{% if user.is_superuser %}Super administrator{% else %}Administrator{% endif %}</div>
+      <a href="/dashboard/logout" class="btn btn-secondary btn-sm btn-block" style="margin-top:10px">Log out</a>
+      <a href="/" class="dim" style="display:block; margin-top:10px; font-size:12px">← Public site</a>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+    <button class="dash-burger" aria-label="Toggle navigation" onclick="document.getElementById('dash-side').classList.toggle('open')">☰ Menu</button>
+    {% include 'partials/messages.html' %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

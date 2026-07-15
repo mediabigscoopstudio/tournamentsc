@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — TournamentSC{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <h1>{{ title }}</h1>
+  <div class="stack" style="margin-top:20px">
+    {% for fx in fixtures %}
+      <a class="fixture-row" href="{{ fx.get_absolute_url }}">
+        <div>
+          <div>{{ fx.tournament.name }}</div>
+          <div class="dim" style="font-size:12px">{{ fx.round_name }} · {{ fx.scheduled_time|date:'M j, H:i'|default:'Time TBD' }}</div>
+        </div>
+        <span class="badge badge-upcoming">{{ fx.get_status_display }}</span>
+      </a>
+    {% empty %}<div class="empty">Nothing scheduled. <a href="/browse">Join a tournament.</a></div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

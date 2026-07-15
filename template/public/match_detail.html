@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ fixture.round_name }} — {{ tournament.name }}{% endblock %}
+{% block content %}
+<div class="wrap">
+  <a class="back" href="{{ tournament.get_absolute_url }}"><svg class="ico" style="width:16px;height:16px;transform:rotate(180deg)"><use href="#i-arrow"/></svg> {{ tournament.name }}</a>
+
+  <div class="two-col">
+    <div class="stack">
+      <div class="scoreboard {% if fixture.status == 'LIVE' %}is-live{% endif %}" data-live-fixture="{{ fixture.id }}" data-live-status="{{ fixture.status }}">
+        <div class="scoreboard-top">
+          {% if fixture.status == 'LIVE' %}<span class="live" data-live-badge><span class="live__dot"></span> Live</span>
+          {% elif fixture.status == 'COMPLETED' %}<span class="badge badge-completed">Final</span>
+          {% else %}<span class="badge badge-upcoming">{{ fixture.get_status_display }}</span>{% endif %}
+          <span class="scoreboard-clock">{{ fixture.round_name }}{% if fixture.venue_detail %} · {{ fixture.venue_detail }}{% endif %}</span>
+        </div>
+
+        {% if is_time %}
+          <div class="table-wrap"><table aria-live="polite">
+            <thead><tr><th class="n">#</th><th>Competitor</th><th class="n">Bib</th><th class="n">Pace</th><th class="n">Result</th><th>State</th></tr></thead>
+            <tbody>{% for p in participants %}
+              <tr class="{% if p.rank == 1 %}qual{% endif %}">
+                <td class="n" data-rank="{{ p.id }}">{{ p.rank|default:'—' }}</td>
+                <td><div class="tcell">{{ p.name }}</div></td>
+                <td class="n">{{ p.bib|default:'—' }}</td>
+                <td class="n">{% if p.pace_display %}{{ p.pace_display }} /km{% else %}—{% endif %}</td>
+                <td class="pts" data-score="{{ p.id }}">{% if p.time_ms %}{{ p.time_display }}{% elif p.score is not None %}{{ p.score|floatformat:'-2' }}{% else %}—{% endif %}</td>
+                <td>{{ p.get_result_state_display }}</td>
+              </tr>
+            {% endfor %}</tbody>
+          </table></div>
+
+        {% elif is_lobby %}
+          <div class="table-wrap"><table aria-live="polite">
+            <thead><tr><th class="n">Place</th><th>Squad</th><th class="n">Kills</th><th class="n">Points</th></tr></thead>
+            <tbody>{% for p in participants %}
+              <tr class="{% if p.rank == 1 %}qual{% endif %}">
+                <td class="n" data-rank="{{ p.id }}">{{ p.rank|default:'—' }}</td>
+                <td><div class="tcell">{{ p.name }}</div></td>
+                <td class="n">{{ p.kills|default_if_none:'—' }}</td>
+                <td class="pts" data-score="{{ p.id }}">{{ p.score|default_if_none:'—'|floatformat:'-2' }}</td>
+              </tr>
+            {% endfor %}</tbody>
+          </table></div>
+
+        {% elif participants|length == 2 %}
+          <div class="scoreboard-main" aria-live="polite">
+            {% for p in participants %}
+              {% if forloop.first %}
+                <div class="competitor"><div class="competitor-crest" style="background:var(--{{ tournament.sport.sp_class }})">{{ p.initials }}</div><div class="competitor-name {% if p.is_winner %}winner{% endif %}">{{ p.name }}</div></div>
+                <div class="score-center"><span class="score-num" data-score="{{ p.id }}">{{ p.score|default_if_none:'0'|floatformat:'-2' }}</span><span class="score-divider">–</span>
+              {% else %}
+                <span class="score-num" data-score="{{ p.id }}">{{ p.score|default_if_none:'0'|floatformat:'-2' }}</span></div>
+                <div class="competitor"><div class="competitor-crest">{{ p.initials }}</div><div class="competitor-name {% if p.is_winner %}winner{% endif %}">{{ p.name }}</div></div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          {% if win_probability %}
+            <div style="margin-top:20px" data-prob-wrap>
+              <div class="hcard__bar"><i style="width:{{ win_probability }}%" data-prob-bar></i></div>
+              <div class="hcard__prob">
+                <span>{{ participants.0.name|truncatechars:14 }} <b data-prob-a>{{ win_probability }}</b>%</span>
+                <span>Win probability</span>
+                <span><b data-prob-b>{{ fixture.win_probability_other }}</b>% {{ participants.1.name|truncatechars:14 }}</span>
+              </div>
+            </div>
+          {% endif %}
+
+        {% else %}
+          <div class="table-wrap"><table aria-live="polite">
+            <thead><tr><th>Competitor</th><th class="n">Score</th></tr></thead>
+            <tbody>{% for p in participants %}<tr><td><div class="tcell">{{ p.name }}</div></td><td class="n" data-score="{{ p.id }}">{{ p.score|default_if_none:'—'|floatformat:'-2' }}</td></tr>{% endfor %}</tbody>
+          </table></div>
+        {% endif %}
+      </div>
+
+      {% if yt_id %}<div class="embed"><iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0" allowfullscreen title="Stream"></iframe></div>
+      {% elif fixture.effective_youtube_url %}<a class="btn btn--secondary" href="{{ fixture.effective_youtube_url }}" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg> Watch on YouTube</a>{% endif %}
+
+      {% if highlight %}
+        <div class="panel">
+          <div class="spread">
+            <h3>{{ highlight.title }}</h3>
+            <span class="dim mono" style="font-size:12px">
+              {% if highlight.duration_display %}{{ highlight.duration_display }} · {% endif %}
+              {{ highlight.views_display }} view{{ highlight.view_count|pluralize }}
+            </span>
+          </div>
+          {% if highlight.best_performer %}<p class="dim" style="margin-top:6px">⭐ Best performer: {{ highlight.best_performer }}</p>{% endif %}
+          {% if highlight.image %}<img src="{{ highlight.image.url }}" alt="" style="border-radius:12px;margin:12px 0">{% endif %}
+          <p style="margin-top:8px">{{ highlight.description|linebreaks }}</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <aside class="stack">
+      <div class="panel">
+        <h3>Match info</h3>
+        <dl class="kv" style="margin-top:12px">
+          <dt>Round</dt><dd>{{ fixture.round_name }}</dd>
+          <dt>Status</dt><dd>{{ fixture.get_status_display }}</dd>
+          {% if fixture.scheduled_time %}<dt>Time</dt><dd>{{ fixture.scheduled_time|date:'M j, H:i' }}</dd>{% endif %}
+          {% if fixture.venue_detail %}<dt>Venue</dt><dd>{{ fixture.venue_detail }}</dd>{% endif %}
+        </dl>
+      </div>
+      {% if events %}
+      <div class="panel">
+        <h3>Commentary</h3>
+        <ul class="feed" data-feed>{% for e in events %}<li><span class="t">{{ e.created_at|date:'H:i' }}</span><span>{{ e.description }}</span></li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/live-scores.js' %}"></script>{% endblock %}

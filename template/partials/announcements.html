@@ -1,0 +1,12 @@
+{% if site_conf.maintenance_mode %}
+  <div class="wrap"><div class="messages">
+    <div class="msg warning">{{ site_conf.maintenance_message }}</div>
+  </div></div>
+{% endif %}
+{% if site_announcements %}
+  <div class="wrap"><div class="messages">
+    {% for a in site_announcements %}
+      <div class="msg {{ a.level }}"><strong>{{ a.title }}</strong> — {{ a.message }}</div>
+    {% endfor %}
+  </div></div>
+{% endif %}

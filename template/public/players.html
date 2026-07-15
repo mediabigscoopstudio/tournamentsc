@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Players — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="sec-head">
+    <div><h2>Players</h2><p>Everyone competing on {{ site_conf.site_name }}.</p></div>
+  </div>
+
+  <form method="get" class="row-flex" style="margin-bottom:24px">
+    <input class="input" name="q" value="{{ q }}" placeholder="Name or city" style="max-width:320px">
+    <button class="btn btn--primary" type="submit">Search</button>
+  </form>
+
+  {% if page.object_list %}
+    <div class="card-grid">
+      {% for p in page.object_list %}
+        <a class="panel tblcard" href="{% url 'player_public' p.pk %}">
+          <h3>{{ p.user.display_name }}{% if p.user.is_verified %} <span class="verified">✔</span>{% endif %}</h3>
+          <p class="muted">{{ p.city|default:'—' }}</p>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if page.has_other_pages %}
+      <div class="pager" style="margin-top:24px">
+        {% if page.has_previous %}<a class="btn btn--secondary btn--sm" href="?page={{ page.previous_page_number }}&q={{ q }}">← Previous</a>{% endif %}
+        <span class="dim">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn btn--secondary btn--sm" href="?page={{ page.next_page_number }}&q={{ q }}">Next →</a>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="empty">No players found{% if q %} for “{{ q }}”{% endif %}.</div>
+  {% endif %}
+</section>
+{% endblock %}

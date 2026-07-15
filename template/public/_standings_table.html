@@ -1,0 +1,47 @@
+{% comment %}
+Standings table. Shared by the tournament detail tab and the standalone
+/t/<slug>/standings page — the two must never drift apart.
+Context: standings, is_lobby, has_ratings
+{% endcomment %}
+<div class="tblcard"><h4>{% if is_lobby %}Overall leaderboard{% else %}Standings{% endif %}</h4>
+  <div class="table-wrap"><table>
+    {% if is_lobby %}
+      {# Battle-royale: points come from placement + kills, so show the breakdown. #}
+      <thead><tr><th>Squad</th><th class="n">Matches</th><th class="n">Place pts</th><th class="n">Kills</th><th class="n">Total</th></tr></thead>
+      <tbody>
+        {% for s in standings %}
+          <tr class="{% if forloop.counter <= 2 %}qual{% endif %}">
+            <td><div class="tcell"><span class="rk">{{ s.position }}</span> {{ s.name }}</div></td>
+            <td class="n">{{ s.played }}</td>
+            <td class="n">{{ s.extra_stats.place_pts|default:0 }}</td>
+            <td class="n">{{ s.extra_stats.kills|default:0 }}</td>
+            <td class="pts">{{ s.points }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    {% else %}
+      <thead><tr>
+        <th>Competitor</th>
+        {% if has_ratings %}<th class="n">Rating</th>{% endif %}
+        <th class="n">P</th><th class="n">W</th><th class="n">D</th><th class="n">L</th>
+        <th class="n">Pts</th><th class="n">Buchholz</th>
+      </tr></thead>
+      <tbody>
+        {% for s in standings %}
+          <tr class="{% if forloop.counter <= 2 %}qual{% endif %}">
+            <td><div class="tcell"><span class="rk">{{ s.position }}</span> {{ s.name }}</div></td>
+            {% if has_ratings %}<td class="n">{{ s.extra_stats.rating|default:'—' }}</td>{% endif %}
+            <td class="n">{{ s.played }}</td><td class="n">{{ s.won }}</td>
+            <td class="n">{{ s.drawn }}</td><td class="n">{{ s.lost }}</td>
+            <td class="pts">{{ s.points }}</td>
+            <td class="n">{{ s.extra_stats.buchholz|default:'—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    {% endif %}
+  </table></div>
+</div>
+<div class="qnote"><span class="qkey"></span>
+  Top two qualify.
+  {% if not is_lobby %}Equal points are separated by Buchholz — the sum of your opponents' scores.{% endif %}
+</div>

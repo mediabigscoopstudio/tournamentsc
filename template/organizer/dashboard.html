@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Organizer dashboard — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <div class="spread">
+    <div>
+      <div class="eyebrow">🎪 Organizer</div>
+      <h1>Your tournaments</h1>
+    </div>
+    <div class="row-flex">
+      <a class="btn btn-secondary btn-sm" href="{% url 'organizer_profile_edit' %}">Profile</a>
+      <a class="btn btn-primary" href="{% url 'tournament_create' %}">+ Create tournament</a>
+    </div>
+  </div>
+
+  <div class="stat-grid" style="margin-top:22px">
+    <div class="stat"><div class="n">{{ counts.total }}</div><div class="l">Tournaments</div></div>
+    <div class="stat"><div class="n brand">{{ counts.live }}</div><div class="l">Live now</div></div>
+    <div class="stat"><div class="n">{{ counts.draft }}</div><div class="l">Drafts</div></div>
+    <div class="stat"><div class="n">{{ counts.pending_requests }}</div><div class="l">Pending requests</div></div>
+  </div>
+
+  {% if tournaments %}
+    <div class="card-grid" style="margin-top:24px">
+      {% for t in tournaments %}
+        <div class="card"><div class="card-body">
+          <div class="row-flex" style="justify-content:space-between">
+            <span class="tag {{ t.sport.tag_class }}">{{ t.sport.icon }} {{ t.sport.name }}</span>
+            {% include 'partials/status_badge.html' with status=t.status %}
+          </div>
+          <div class="tcard__title" style="margin-top:10px">{{ t.name }}</div>
+          <div class="card-meta">{{ t.get_format_display }} · {{ t.participant_count }} entrants</div>
+          <div class="row-flex" style="margin-top:12px">
+            <a class="btn btn-secondary btn-sm" href="{% url 'tournament_manage' t.slug %}">Manage</a>
+            {% if t.status != 'DRAFT' %}
+              <a class="btn btn-ghost btn-sm" href="{{ t.get_absolute_url }}">View public</a>
+            {% endif %}
+          </div>
+        </div></div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty" style="margin-top:24px">
+      You haven't created a tournament yet.
+      <a href="{% url 'tournament_create' %}">Create your first one.</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'dash/base.html' %}
+{% block page_title %}Delete {{ res.singular }}{% endblock %}
+{% block content %}
+
+<div class="dash-head">
+  <a class="dim" href="/dashboard/{{ res.key }}/">← {{ res.label }}</a>
+  <h1>Delete this {{ res.singular|lower }}?</h1>
+</div>
+
+<div class="panel tblcard" style="max-width:640px">
+  <p style="font-size:17px"><strong>{{ obj }}</strong></p>
+
+  {% if related %}
+    <div class="msg warning" style="margin-top:16px">
+      <strong>This will also delete:</strong>
+      <ul style="margin:8px 0 0 18px">
+        {% for r in related %}<li>{{ r }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <p class="muted" style="margin-top:16px">
+    Deleting is permanent. If you only want to take this off the public site,
+    go back and use <strong>Archive</strong> instead — it is reversible.
+  </p>
+
+  <form method="post" style="margin-top:22px">
+    {% csrf_token %}
+    <div class="row-flex">
+      <button class="btn btn-destructive" type="submit">Yes, delete permanently</button>
+      <a class="btn btn-secondary" href="/dashboard/{{ res.key }}/">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

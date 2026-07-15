@@ -1,0 +1,77 @@
+{% extends 'dash/base.html' %}
+{% block page_title %}Analytics{% endblock %}
+{% block content %}
+
+<div class="dash-head">
+  <h1>Analytics</h1>
+  <p class="muted">Platform health across accounts, competition and content.</p>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="n brand">{{ totals.users }}</div><div class="l">Total users</div></div>
+  <div class="stat"><div class="n">{{ totals.players }}</div><div class="l">Players</div></div>
+  <div class="stat"><div class="n">{{ totals.organizers }}</div><div class="l">Approved organizers</div></div>
+  <div class="stat"><div class="n">{{ totals.tournaments }}</div><div class="l">Tournaments</div></div>
+  <div class="stat"><div class="n">{{ totals.fixtures }}</div><div class="l">Fixtures</div></div>
+  <div class="stat"><div class="n">{{ totals.completed_fixtures }}</div><div class="l">Matches played</div></div>
+  <div class="stat"><div class="n">{{ totals.teams }}</div><div class="l">Teams</div></div>
+  <div class="stat"><div class="n">{{ totals.highlights }}</div><div class="l">Highlights</div></div>
+  <div class="stat"><div class="n">{{ totals.highlight_views }}</div><div class="l">Highlight views</div></div>
+  <div class="stat"><div class="n">{{ totals.follows }}</div><div class="l">Tournament follows</div></div>
+  <div class="stat"><div class="n">₹{{ totals.prize_money|floatformat:'-2' }}</div><div class="l">Prize money listed</div></div>
+</div>
+
+<div class="panel tblcard" style="margin-top:26px">
+  <h3>New accounts — last 12 weeks</h3>
+  <div class="spark" style="margin-top:18px">
+    {% for s in signups %}
+      <div class="spark__col" title="{{ s.n }} sign-ups">
+        <div class="spark__bar" style="height:{% widthratio s.n max_signups 100 %}%"></div>
+        <div class="spark__lab">{{ s.label }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="two-col" style="margin-top:26px; align-items:start">
+  <div class="panel tblcard">
+    <h3>Tournaments by sport</h3>
+    <div style="margin-top:16px">
+      {% for s in by_sport %}
+        <div class="bar-row">
+          <span class="lab">{{ s.icon }} {{ s.name }}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:{% widthratio s.n max_sport 100 %}%"></div></div>
+          <span class="val">{{ s.n }}</span>
+        </div>
+      {% empty %}<p class="muted">No data yet.</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="panel tblcard">
+    <h3>Tournaments by status</h3>
+    <div style="margin-top:16px">
+      {% for label, n in by_status %}
+        <div class="bar-row">
+          <span class="lab">{{ label }}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:{% widthratio n max_status 100 %}%"></div></div>
+          <span class="val">{{ n }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="panel tblcard" style="margin-top:26px">
+  <div class="spread"><h3>Most active organizers</h3><a class="dim" href="/dashboard/organizers/">All organizers →</a></div>
+  <div style="margin-top:16px">
+    {% for o in top_organizers %}
+      <div class="bar-row">
+        <span class="lab">{{ o.user.display_name }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:{% widthratio o.n max_organizer 100 %}%"></div></div>
+        <span class="val">{{ o.n }}</span>
+      </div>
+    {% empty %}<p class="muted">No approved organizers yet.</p>{% endfor %}
+  </div>
+</div>
+
+{% endblock %}

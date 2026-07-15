@@ -1,0 +1,77 @@
+{% extends 'dash/base.html' %}
+{% block page_title %}Overview{% endblock %}
+{% block content %}
+
+<div class="dash-head">
+  <h1>Platform overview</h1>
+  <p class="muted">Everything on {{ site_conf.site_name }}, at a glance.</p>
+</div>
+
+{% if pending_apps or pending_registrations or unpublished_news %}
+<div class="panel tblcard" style="margin-bottom:22px; border-left:4px solid var(--orange)">
+  <strong>Needs your attention</strong>
+  <div class="row-flex" style="margin-top:10px; flex-wrap:wrap">
+    {% if pending_apps %}
+      <a class="btn btn-primary btn-sm" href="/dashboard/applications/?status=PENDING">{{ pending_apps }} organizer application{{ pending_apps|pluralize }} to review</a>
+    {% endif %}
+    {% if pending_registrations %}
+      <a class="btn btn-secondary btn-sm" href="/dashboard/registrations/?status=PENDING">Pending registrations</a>
+    {% endif %}
+    {% if unpublished_news %}
+      <a class="btn btn-ghost btn-sm" href="/dashboard/news/?status=DRAFT">{{ unpublished_news }} draft article{{ unpublished_news|pluralize }}</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="stat-grid">
+  <div class="stat"><div class="n">{{ total_tournaments }}</div><div class="l">Tournaments</div></div>
+  <div class="stat"><div class="n brand">{{ live_now }}</div><div class="l">Matches live now</div></div>
+  <div class="stat"><div class="n">{{ ongoing }}</div><div class="l">Ongoing tournaments</div></div>
+  <div class="stat"><div class="n">{{ upcoming }}</div><div class="l">Upcoming</div></div>
+  <div class="stat"><div class="n">{{ completed }}</div><div class="l">Completed</div></div>
+  <div class="stat"><div class="n">{{ draft }}</div><div class="l">Drafts</div></div>
+  <div class="stat"><div class="n">{{ total_users }}</div><div class="l">Users</div></div>
+  <div class="stat"><div class="n">{{ active_organizers }}</div><div class="l">Approved organizers</div></div>
+  <div class="stat"><div class="n">{{ total_players }}</div><div class="l">Players</div></div>
+  <div class="stat"><div class="n">{{ total_teams }}</div><div class="l">Teams</div></div>
+  <div class="stat"><div class="n">{{ activation_rate }}%</div><div class="l">Organizer 7-day activation</div></div>
+</div>
+
+<div class="two-col" style="margin-top:26px; align-items:start">
+  <div class="panel tblcard">
+    <div class="spread"><h3>Tournaments by sport</h3><a class="dim" href="/dashboard/analytics/">Analytics →</a></div>
+    <div style="margin-top:16px">
+      {% for s in by_sport %}
+        <div class="bar-row">
+          <span class="lab">{{ s.icon }} {{ s.name }}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:{% widthratio s.n max_sport 100 %}%"></div></div>
+          <span class="val">{{ s.n }}</span>
+        </div>
+      {% empty %}
+        <p class="muted">No sports seeded yet — run <code>manage.py seed_sports</code>.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel tblcard">
+    <div class="spread"><h3>Recent activity</h3><a class="dim" href="/dashboard/logs/">Full log →</a></div>
+    <div style="margin-top:8px">
+      {% for e in recent_audit %}
+        <div class="fixture-row">
+          <div>
+            <strong>{{ e.action }}</strong>
+            <div class="muted" style="font-size:13px">{{ e.target }}</div>
+          </div>
+          <div class="muted" style="font-size:12px; text-align:right">
+            {{ e.actor.display_name|default:'system' }}<br>{{ e.created_at|date:'d M, H:i' }}
+          </div>
+        </div>
+      {% empty %}
+        <p class="muted">No admin actions recorded yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

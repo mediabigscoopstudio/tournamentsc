@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}My tournaments — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <a class="dim" href="{% url 'player_dashboard' %}">← My dashboard</a>
+  <h1 style="margin-top:10px">My tournaments</h1>
+  <p class="muted">Everything you've joined, as an individual or with a team.</p>
+
+  {% if tournaments %}
+    <div class="card-grid" style="margin-top:24px">
+      {% for t in tournaments %}{% include 'partials/tournament_card.html' with t=t %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="empty" style="margin-top:24px">
+      You haven't joined a tournament yet. <a href="{% url 'browse' %}">Browse what's on.</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

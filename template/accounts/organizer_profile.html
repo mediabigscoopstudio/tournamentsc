@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Organizer profile — {{ site_conf.site_name }}{% endblock %}
+{% block content %}
+<section class="section wrap" style="max-width:560px">
+  <a class="dim" href="/organizer/">← Organizer dashboard</a>
+  <h1 style="margin-top:8px">Organizer profile</h1>
+  <p class="muted">This is what audiences see next to your tournaments.</p>
+
+  <form method="post" class="panel tblcard" style="margin-top:20px">
+    {% csrf_token %}
+    {% include 'partials/form.html' %}
+    <div class="row-flex" style="margin-top:16px">
+      <button class="btn btn-primary" type="submit">Save profile</button>
+      <a class="btn btn-ghost" href="/organizer/">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

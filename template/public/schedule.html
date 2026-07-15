@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Schedule — {{ tournament.name }}{% endblock %}
+{% block content %}
+<section class="section wrap">
+  <a class="back" href="{{ tournament.get_absolute_url }}">
+    <svg class="ico" style="width:16px;height:16px;transform:rotate(180deg)"><use href="#i-arrow"/></svg> {{ tournament.name }}
+  </a>
+  <h1 style="margin-top:12px">Schedule</h1>
+  <p class="muted">{{ tournament.start_date|date:'d M' }} – {{ tournament.end_date|date:'d M Y' }}</p>
+
+  {% if fixtures %}
+    {% include 'public/_fixture_list.html' with fixtures=fixtures %}
+  {% else %}
+    <div class="empty">Fixtures haven't been published yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

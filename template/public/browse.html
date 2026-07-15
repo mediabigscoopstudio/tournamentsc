@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Browse tournaments — TournamentSC{% endblock %}
+{% block content %}
+<section>
+  <div class="wrap">
+    <div class="sec-head"><div><h2>Tournaments to follow</h2><p>Filter by sport, city, date or status. Every link is shareable.</p></div></div>
+
+    <div class="chips" role="group" aria-label="Filter by sport">
+      <a class="chip {% if not selected_sports %}active{% endif %}" href="/browse"><svg class="ico"><use href="#i-grid"/></svg> All</a>
+      {% for s in sports %}
+        <a class="chip {{ s.sp_class }} {% if s.slug in selected_sports %}active{% endif %}" href="/browse?sport={{ s.slug }}"><svg class="ico"><use href="#{{ s.icon_symbol }}"/></svg> {{ s.name }}</a>
+      {% endfor %}
+    </div>
+
+    <form method="get" class="panel" style="margin-bottom:24px">
+      {% for slug in selected_sports %}<input type="hidden" name="sport" value="{{ slug }}">{% endfor %}
+      <div class="form-grid">
+        <div class="field" style="margin:0"><label>City</label><input name="city" value="{{ filters.city }}" placeholder="e.g. Bhubaneswar"></div>
+        <div class="field" style="margin:0"><label>Status</label>
+          <select name="status">
+            <option value="">Any status</option>
+            {% for value, label in status_choices %}{% if value != 'DRAFT' %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
+          </select>
+        </div>
+        <div class="field" style="margin:0"><label>From</label><input type="date" name="from" value="{{ filters.from }}"></div>
+        <div class="field" style="margin:0"><label>To</label><input type="date" name="to" value="{{ filters.to }}"></div>
+        <div class="field" style="margin:0; align-self:end"><button class="btn btn--primary btn-block" type="submit">Apply</button></div>
+      </div>
+    </form>
+
+    {% if page.object_list %}
+      <div class="tgrid">{% for t in page.object_list %}{% include 'partials/tournament_card.html' %}{% endfor %}</div>
+      {% if page.has_other_pages %}
+      {% comment %}
+      `querystring` carries every active filter, so page 2 keeps the city,
+      status, dates and *all* selected sports — not just the first one.
+      {% endcomment %}
+      <div class="row-flex" style="justify-content:center; margin-top:32px">
+        {% if page.has_previous %}<a class="btn btn--secondary btn--sm" href="?page={{ page.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">← Prev</a>{% endif %}
+        <span class="dim">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn btn--secondary btn--sm" href="?page={{ page.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">Next →</a>{% endif %}
+      </div>
+      {% endif %}
+    {% else %}
+      <div class="empty">
+        No tournaments match these filters.
+        {% if querystring %}<a href="{% url 'browse' %}" style="color:var(--orange);font-weight:700">Clear filters</a>{% else %}<a href="{% url 'signup' %}" style="color:var(--orange);font-weight:700">Start one</a>{% endif %}.
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
