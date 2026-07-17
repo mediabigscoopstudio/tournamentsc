@@ -2,7 +2,8 @@
 <header class="nav">
   <div class="wrap nav__row">
     <a class="brand-logo" href="/" aria-label="{{ site_conf.site_name }} home">
-      <img src="{% static 'images/logo.png' %}" alt="{{ site_conf.site_name }}">
+      <img class="brand-logo__full" src="{% static 'images/logo.png' %}" alt="{{ site_conf.site_name }}">
+      <img class="brand-logo__icon" src="{% static 'images/logo-icon.png' %}" alt="{{ site_conf.site_name }}">
     </a>
     <nav class="nav__pill">
       <a href="{% url 'browse' %}">Tournaments</a>
