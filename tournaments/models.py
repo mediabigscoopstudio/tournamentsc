@@ -110,6 +110,9 @@ class Tournament(TimeStamped):
     is_featured = models.BooleanField(default=False)
     featured_order = models.PositiveIntegerField(default=0)
     youtube_url = models.URLField(blank=True, help_text='Default stream for the whole tournament')
+    registration_form_url = models.URLField(
+        blank=True, help_text='Google Form link for team/player registration — shown as a '
+                              'button on the tournament page.')
     points_config = models.JSONField(default=C.default_points_config, blank=True)
     fixtures_generated = models.BooleanField(default=False)
     is_removed = models.BooleanField(default=False)  # admin moderation (soft)
@@ -311,6 +314,32 @@ class Fixture(TimeStamped):
     advances_slot = models.PositiveIntegerField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     is_removed = models.BooleanField(default=False)
+    # Match clock (currently used by the basketball live-scoring view): when the
+    # fixture went LIVE, plus accumulated extra time. The running clock is
+    # simply `now - live_started_at + extra_time_seconds` — one continuous
+    # timer, no separate extra-time system.
+    live_started_at = models.DateTimeField(null=True, blank=True)
+    extra_time_seconds = models.PositiveIntegerField(default=0)
+    # Paused-clock support (basketball only): while set, the running clock is
+    # frozen at `clock_paused_at - live_started_at + extra_time_seconds`.
+    # Resuming shifts `live_started_at` forward by the paused duration instead
+    # of introducing a separate accumulator, so the clock formula above never
+    # has to change.
+    clock_paused_at = models.DateTimeField(null=True, blank=True)
+    # Quarter/period tracker (basketball only): 1-4 = quarters, 5+ = OT/2OT/...
+    current_period = models.PositiveSmallIntegerField(default=1)
+    # Quarter length, organizer-adjustable at any time (basketball only). The
+    # quarter clock counts DOWN: remaining = quarter_length_seconds +
+    # extra_time_seconds - elapsed_since(live_started_at) — so "add extra
+    # time" correctly extends the quarter instead of draining it faster.
+    quarter_length_seconds = models.PositiveIntegerField(default=600)
+    # 24-second shot clock (basketball only), independent of the quarter clock
+    # and fully organizer-controlled (start/pause/reset are explicit actions —
+    # it never auto-runs). `shot_clock_seconds_remaining` is the frozen
+    # baseline whenever it isn't running; `shot_clock_running_since` is set
+    # while it counts down, same shift-the-anchor pattern as the quarter clock.
+    shot_clock_seconds_remaining = models.PositiveSmallIntegerField(default=24)
+    shot_clock_running_since = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['round_no', 'sequence', 'id']
@@ -361,6 +390,35 @@ class Fixture(TimeStamped):
         wp = self.win_probability
         return None if wp is None else 100 - wp
 
+    @property
+    def paused_quarter_remaining_seconds(self):
+        """Countdown seconds remaining, frozen at the moment the clock was
+        paused, or None while running. Lets the template render a static
+        value instead of the JS having to know 'now' during a pause."""
+        if not (self.clock_paused_at and self.live_started_at):
+            return None
+        elapsed = (self.clock_paused_at - self.live_started_at).total_seconds()
+        remaining = self.quarter_length_seconds + self.extra_time_seconds - elapsed
+        return max(0, int(remaining))
+
+    @property
+    def shot_clock_display_seconds(self):
+        """Shot clock seconds for the initial server-rendered paint — JS ticks
+        it client-side from here exactly like the quarter clock."""
+        if not self.shot_clock_running_since:
+            return self.shot_clock_seconds_remaining
+        elapsed = (timezone.now() - self.shot_clock_running_since).total_seconds()
+        return max(0, int(self.shot_clock_seconds_remaining - elapsed))
+
+    @property
+    def period_display(self):
+        """1-4 -> '1st'/'2nd'/'3rd'/'4th', 5+ -> 'OT'/'2OT'/'3OT'/... (basketball only)."""
+        n = self.current_period or 1
+        if n <= 4:
+            return {1: '1st', 2: '2nd', 3: '3rd', 4: '4th'}[n]
+        ot = n - 4
+        return 'OT' if ot == 1 else f'{ot}OT'
+
 
 class FixtureParticipant(models.Model):
     """One row per competitor. Exactly one of team/player is set (enforced by a
@@ -376,6 +434,7 @@ class FixtureParticipant(models.Model):
     result_state = models.CharField(max_length=3, choices=C.RESULT_STATE, default='OK')
     time_ms = models.PositiveIntegerField(null=True, blank=True, help_text='Finish time in ms for time formats')
     stats = models.JSONField(default=dict, blank=True)
+    fouls = models.PositiveSmallIntegerField(default=0, help_text='Team foul count (basketball only)')
 
     class Meta:
         ordering = ['slot', 'id']

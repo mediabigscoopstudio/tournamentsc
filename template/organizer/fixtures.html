@@ -5,16 +5,81 @@
   <a href="{% url 'tournament_manage' tournament.slug %}" class="dim">← Manage {{ tournament.name }}</a>
   <div class="spread" style="margin-top:12px">
     <h1>Fixtures &amp; scoring</h1>
-    <form method="post" action="{% url 'fixtures_generate' tournament.slug %}"
-          onsubmit="return confirm('Regenerate fixtures? Existing fixtures and their scores will be replaced.')">
-      {% csrf_token %}
-      <button class="btn btn-secondary btn-sm">Regenerate</button>
-    </form>
+    <div class="row-flex" style="gap:8px">
+      {% if not manual_mode %}
+        <form method="post" action="{% url 'fixtures_generate' tournament.slug %}"
+              onsubmit="return confirm('Regenerate fixtures? Existing fixtures and their scores will be replaced.')">
+          {% csrf_token %}
+          <button class="btn btn-secondary btn-sm">
+            {% if tournament.fixtures_generated %}Regenerate{% else %}Generate{% endif %} fixtures
+          </button>
+        </form>
+      {% endif %}
+      {% if fixtures %}
+        <form method="post" action="{% url 'fixtures_clear_all' tournament.slug %}"
+              onsubmit="return confirm('Remove ALL {{ fixtures|length }} fixture(s) for this tournament? Scores, brackets, and standings built from them will be cleared. This cannot be undone.')">
+          {% csrf_token %}
+          <button class="btn btn-destructive btn-sm">Remove all fixtures</button>
+        </form>
+      {% endif %}
+    </div>
   </div>
+
+  {% if is_knockout %}
+    <div class="panel tblcard" style="margin-top:16px">
+      <h3>Knockout Bracket</h3>
+      <p class="muted" style="margin-top:4px">
+        Auto-generate a full single-elimination bracket for every approved team.
+        Works for any number of teams — byes up to the next power of two are added
+        automatically, and winners advance into the next round as each match is finalized.
+      </p>
+      <form method="post" action="{% url 'fixtures_generate_bracket' tournament.slug %}" style="margin-top:12px"
+            onsubmit="return confirm('Generate a knockout bracket automatically? This replaces any existing fixtures and scores for this tournament.')">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm">
+          {% if tournament.fixtures_generated %}Regenerate{% else %}Generate{% endif %} knockout bracket
+        </button>
+      </form>
+    </div>
+  {% endif %}
+
+  {% if bracket_rounds %}
+    <div class="panel tblcard" style="margin-top:16px">
+      <h3>Bracket</h3>
+      {% include 'public/_bracket.html' %}
+    </div>
+  {% endif %}
+
+  {% if manual_mode %}
+    <div class="panel tblcard" style="margin-top:16px">
+      <h3>By Organiser</h3>
+      <p class="muted" style="margin-top:4px">Create fixtures yourself — pick who plays whom and add them one at a time.</p>
+      <form method="post" action="{% url 'fixture_add_manual' tournament.slug %}"
+            class="row-flex" style="margin-top:12px; flex-wrap:wrap">
+        {% csrf_token %}
+        <select class="input" name="entrant_a" required style="max-width:200px">
+          <option value="">Team A…</option>
+          {% for key, label, payload in entrant_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+        <select class="input" name="entrant_b" required style="max-width:200px">
+          <option value="">Team B…</option>
+          {% for key, label, payload in entrant_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+        <input class="input" type="number" name="round_no" min="1" value="1" title="Round number"
+               style="max-width:90px">
+        <input class="input" type="text" name="round_name" placeholder="Round label (optional)"
+               style="max-width:180px">
+        <button class="btn btn-primary btn-sm">Add fixture</button>
+      </form>
+      {% if not entrant_choices %}
+        <p class="dim" style="margin-top:8px; font-size:13px">Add participants first — see Participants.</p>
+      {% endif %}
+    </div>
+  {% endif %}
 
   <div class="stack" style="margin-top:20px">
     {% for fx in fixtures %}
-      <div class="fixture-row">
+      <div class="fixture-row fx-row">
         <div>
           <div>
             {% for p in fx.participants.all %}{{ p.name }}{% if not forloop.last %} <span class="dim">vs</span> {% endif %}{% endfor %}
@@ -32,6 +97,11 @@
           <a class="btn btn-secondary btn-sm" href="{% url 'fixture_schedule' tournament.slug fx.id %}">Schedule</a>
           <a class="btn btn-primary btn-sm" href="{% url 'score_fixture' tournament.slug fx.id %}">Score</a>
           <a class="btn btn-ghost btn-sm" href="{% url 'highlight_manage' tournament.slug fx.id %}">Highlight</a>
+          <form method="post" action="{% url 'fixture_delete' tournament.slug fx.id %}"
+                onsubmit="return confirm('Delete this fixture? This cannot be undone.')">
+            {% csrf_token %}
+            <button class="btn btn-destructive btn-sm" type="submit">Delete</button>
+          </form>
         </div>
       </div>
     {% empty %}

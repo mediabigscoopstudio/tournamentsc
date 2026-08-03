@@ -1,23 +1,288 @@
 {% extends 'base.html' %}
+{% load formtags static %}
 {% block title %}Score — {{ tournament.name }}{% endblock %}
 {% block content %}
 <section class="section wrap" style="max-width:720px">
-  <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
-  <div class="spread" style="margin-top:12px">
-    <h1>{{ fixture.round_name|default:'Fixture' }}</h1>
-    {% if fixture.status == 'LIVE' %}<span class="badge badge-live"><span class="badge-dot"></span>Live</span>
-    {% elif fixture.status == 'COMPLETED' %}<span class="badge badge-completed">Final</span>
-    {% else %}<span class="badge badge-upcoming">{{ fixture.get_status_display }}</span>{% endif %}
-  </div>
+  {% if is_basketball and fixture.status != 'SCHEDULED' %}
+    {% with team_a=participants.0 team_b=participants.1 %}
+    <div class="bball-game-view" id="bball-game-view">
+    <div class="bball-header">
+      <a href="{% url 'fixtures_manage' tournament.slug %}" class="bball-back" aria-label="Back to fixtures">←</a>
+      <div class="bball-team-name bball-team-name--a">{{ team_a.name }}</div>
+      <div class="bball-clock-wrap">
+        <div class="bball-quarter-nav">
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="set_period">
+            <input type="hidden" name="direction" value="prev">
+            <button class="bball-quarter-arrow" type="submit" aria-label="Previous quarter">‹</button>
+          </form>
+          <span class="bball-quarter-pill">{{ fixture.period_display }}</span>
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="set_period">
+            <input type="hidden" name="direction" value="next">
+            <button class="bball-quarter-arrow" type="submit" aria-label="Next quarter">›</button>
+          </form>
+        </div>
+      </div>
+      <div class="bball-team-name bball-team-name--b">{{ team_b.name }}</div>
+      <button type="button" class="bball-back" id="bball-fullscreen-toggle" aria-label="Enter fullscreen">⛶</button>
+      <details class="bball-menu">
+        <summary class="bball-menu-btn" aria-label="Match actions">⋮</summary>
+        <div class="bball-menu-panel">
+          {% if fixture.status == 'LIVE' %}
+            <form method="post" class="bball-menu-extra">
+              {% csrf_token %}<input type="hidden" name="action" value="extra_time">
+              <input class="input" type="number" name="extra_minutes" min="1" placeholder="Minutes">
+              <button class="bball-menu-item" type="submit">+ Add extra time</button>
+            </form>
+            <form method="post" class="bball-menu-form" data-bball-confirm="Undo the last scoring action? This can't be redone.">
+              {% csrf_token %}<input type="hidden" name="action" value="undo_last_score">
+              <button class="bball-menu-item" type="submit" {% if not can_undo_score %}disabled{% endif %}>
+                ↶ Undo last action{% if not can_undo_score %} (nothing to undo){% endif %}
+              </button>
+            </form>
+          {% endif %}
+          <button type="button" class="bball-menu-item" data-bball-view-summary>☰ View match summary</button>
+          <button type="button" class="bball-menu-item bball-menu-item--danger" data-bball-end-match>■ End match</button>
+        </div>
+      </details>
+    </div>
 
-  {% if fixture.status == 'SCHEDULED' %}
-    <form method="post" style="margin-top:16px">{% csrf_token %}
-      <input type="hidden" name="action" value="start">
-      <button class="btn btn-primary">▶ Start match (mark LIVE)</button>
-    </form>
+    <div class="bball-dashboard">
+      <div class="bball-board-row">
+        <div class="bball-fouls-card">
+          <span class="bball-fouls-label">Fouls</span>
+          <span class="bball-fouls-count">{{ team_a.fouls|default:0 }}</span>
+          {% if fixture.status == 'LIVE' %}
+            <div class="bball-fouls-btns">
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="foul">
+                <input type="hidden" name="participant_id" value="{{ team_a.id }}">
+                <button class="bball-fouls-btn" name="delta" value="dec" aria-label="Decrease {{ team_a.name }} fouls">−</button>
+              </form>
+              <button type="button" class="bball-fouls-btn bball-fouls-btn--plus"
+                      data-bball-open-foul="{{ team_a.id }}" aria-label="Add foul for {{ team_a.name }}">+</button>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="bball-scoreboard">
+          <div class="bball-score-wrap">
+            <span class="bball-score bball-score--a">{{ team_a.score|default:0|floatformat:0 }}</span>
+            {% if fixture.status == 'LIVE' %}
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="adjust_score">
+                <input type="hidden" name="participant_id" value="{{ team_a.id }}">
+                <button class="bball-score-adjust" type="submit" aria-label="Reduce {{ team_a.name }} score by 1">−</button>
+              </form>
+            {% endif %}
+          </div>
+
+          {% if fixture.status == 'LIVE' %}
+            <div class="bball-clock-stack">
+              <div class="bball-digital-clock" data-quarter-clock
+                   data-clock-status="{{ fixture.status }}"
+                   data-started-at="{{ fixture.live_started_at|date:'c' }}"
+                   data-extra-seconds="{{ fixture.extra_time_seconds }}"
+                   data-quarter-length-seconds="{{ fixture.quarter_length_seconds }}"
+                   data-paused="{% if fixture.clock_paused_at %}1{% else %}0{% endif %}"
+                   data-paused-remaining-seconds="{{ fixture.paused_quarter_remaining_seconds|default_if_none:'' }}">10:00</div>
+              <div class="bball-clock-controls">
+                <form method="post"
+                      data-bball-confirm="Reset the quarter timer? This also clears any extra time added.">
+                  {% csrf_token %}<input type="hidden" name="action" value="reset_quarter_clock">
+                  <button class="bball-clock-icon-btn" type="submit" aria-label="Reset quarter timer">↺</button>
+                </form>
+                {% if fixture.clock_paused_at %}
+                  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="resume_clock">
+                    <button class="bball-clock-icon-btn" type="submit" aria-label="Resume match clock">▶</button></form>
+                {% else %}
+                  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="pause_clock">
+                    <button class="bball-clock-icon-btn" type="submit" aria-label="Pause match clock">⏸</button></form>
+                {% endif %}
+                <button type="button" class="bball-quarter-length-btn" data-bball-open-dialog="quarter-length-dialog">
+                  {% widthratio fixture.quarter_length_seconds 60 1 %}m
+                </button>
+              </div>
+
+              <div class="bball-shot-clock" data-shot-clock
+                   data-running="{% if fixture.shot_clock_running_since %}1{% else %}0{% endif %}"
+                   data-started-at="{{ fixture.shot_clock_running_since|date:'c' }}"
+                   data-remaining-seconds="{{ fixture.shot_clock_seconds_remaining }}">{{ fixture.shot_clock_display_seconds }}</div>
+              <div class="bball-clock-controls">
+                <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shot_clock_reset">
+                  <button class="bball-clock-icon-btn bball-clock-icon-btn--sm" type="submit" aria-label="Reset shot clock">↺</button>
+                </form>
+                {% if fixture.shot_clock_running_since %}
+                  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shot_clock_pause">
+                    <button class="bball-clock-icon-btn bball-clock-icon-btn--sm" type="submit" aria-label="Pause shot clock">⏸</button></form>
+                {% else %}
+                  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shot_clock_start">
+                    <button class="bball-clock-icon-btn bball-clock-icon-btn--sm" type="submit" aria-label="Start shot clock">▶</button></form>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="bball-score-wrap">
+            <span class="bball-score bball-score--b">{{ team_b.score|default:0|floatformat:0 }}</span>
+            {% if fixture.status == 'LIVE' %}
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="adjust_score">
+                <input type="hidden" name="participant_id" value="{{ team_b.id }}">
+                <button class="bball-score-adjust" type="submit" aria-label="Reduce {{ team_b.name }} score by 1">−</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="bball-fouls-card">
+          <span class="bball-fouls-label">Fouls</span>
+          <span class="bball-fouls-count">{{ team_b.fouls|default:0 }}</span>
+          {% if fixture.status == 'LIVE' %}
+            <div class="bball-fouls-btns">
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="foul">
+                <input type="hidden" name="participant_id" value="{{ team_b.id }}">
+                <button class="bball-fouls-btn" name="delta" value="dec" aria-label="Decrease {{ team_b.name }} fouls">−</button>
+              </form>
+              <button type="button" class="bball-fouls-btn bball-fouls-btn--plus"
+                      data-bball-open-foul="{{ team_b.id }}" aria-label="Add foul for {{ team_b.name }}">+</button>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if fixture.status == 'LIVE' %}
+        <div class="bball-buttons-row">
+          {% for p in participants %}
+            <div class="bball-team-buttons">
+              <form method="post" id="score-form-{{ p.id }}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="score_point">
+                <input type="hidden" name="participant_id" value="{{ p.id }}">
+                <input type="hidden" name="membership_id" id="membership-input-{{ p.id }}">
+                <input type="hidden" name="points" id="points-input-{{ p.id }}">
+              </form>
+              {% for pts in '123' %}
+                <button type="button" class="bball-point-btn {% if forloop.parentloop.first %}bball-point-btn--a{% else %}bball-point-btn--b{% endif %}"
+                        data-bball-open="{{ p.id }}" data-bball-points="{{ pts }}">+{{ pts }}</button>
+              {% endfor %}
+
+              <dialog id="player-dialog-{{ p.id }}" class="bball-player-dialog" data-bball-participant="{{ p.id }}">
+                <h4>Who scored? <span class="bball-dialog-points" data-bball-points-label></span></h4>
+                <div class="bball-roster-list">
+                  {% for m in player_choices|lookup:p.id %}
+                    <button type="button" class="bball-roster-btn" data-bball-membership="{{ m.id }}">
+                      #{{ m.jersey_number|default:'-' }} — {{ m.name }}
+                    </button>
+                  {% empty %}
+                    <p class="dim">No approved roster players for this team.</p>
+                  {% endfor %}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm bball-dialog-cancel">Cancel</button>
+              </dialog>
+
+              <form method="post" id="foul-form-{{ p.id }}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="foul">
+                <input type="hidden" name="participant_id" value="{{ p.id }}">
+                <input type="hidden" name="delta" value="inc">
+                <input type="hidden" name="membership_id" id="foul-membership-input-{{ p.id }}">
+              </form>
+              <dialog id="foul-dialog-{{ p.id }}" class="bball-player-dialog" data-bball-foul-participant="{{ p.id }}">
+                <h4>Whose foul?</h4>
+                <div class="bball-roster-list">
+                  <button type="button" class="bball-roster-btn bball-roster-btn--team" data-bball-foul-membership="">
+                    Team foul (no player)
+                  </button>
+                  {% for m in player_choices|lookup:p.id %}
+                    <button type="button" class="bball-roster-btn" data-bball-foul-membership="{{ m.id }}">
+                      #{{ m.jersey_number|default:'-' }} — {{ m.name }}
+                    </button>
+                  {% endfor %}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm bball-dialog-cancel">Cancel</button>
+              </dialog>
+            </div>
+          {% endfor %}
+        </div>
+
+        <dialog id="quarter-length-dialog" class="bball-player-dialog">
+          <h4>Quarter length</h4>
+          <div class="bball-roster-list">
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_quarter_length">
+              <input type="hidden" name="minutes" value="6">
+              <button type="submit" class="bball-roster-btn">6 minutes</button>
+            </form>
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_quarter_length">
+              <input type="hidden" name="minutes" value="8">
+              <button type="submit" class="bball-roster-btn">8 minutes</button>
+            </form>
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_quarter_length">
+              <input type="hidden" name="minutes" value="10">
+              <button type="submit" class="bball-roster-btn">10 minutes</button>
+            </form>
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_quarter_length">
+              <input type="hidden" name="minutes" value="12">
+              <button type="submit" class="bball-roster-btn">12 minutes</button>
+            </form>
+          </div>
+          <form method="post" class="bball-menu-extra" style="margin-top:4px">
+            {% csrf_token %}<input type="hidden" name="action" value="set_quarter_length">
+            <input class="input" type="number" name="minutes" min="1" max="60" placeholder="Custom minutes">
+            <button type="submit" class="btn btn-secondary btn-sm">Set</button>
+          </form>
+          <button type="button" class="btn btn-secondary btn-sm bball-dialog-cancel" style="margin-top:10px">Cancel</button>
+        </dialog>
+      {% else %}
+        <p class="dim center" style="margin-top:16px">Match ended.</p>
+      {% endif %}
+    </div>
+    </div>
+    {% endwith %}
+  {% else %}
+    <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
+    <div class="spread" style="margin-top:12px">
+      <h1>{{ fixture.round_name|default:'Fixture' }}</h1>
+      {% if fixture.status == 'LIVE' %}<span class="badge badge-live"><span class="badge-dot"></span>Live</span>
+      {% elif fixture.status == 'COMPLETED' %}<span class="badge badge-completed">Final</span>
+      {% else %}<span class="badge badge-upcoming">{{ fixture.get_status_display }}</span>{% endif %}
+    </div>
+
+    {% if fixture.status == 'SCHEDULED' %}
+      <form method="post" style="margin-top:16px">{% csrf_token %}
+        <input type="hidden" name="action" value="start">
+        <button class="btn btn-primary">▶ Start match (mark LIVE)</button>
+      </form>
+    {% endif %}
   {% endif %}
 
-  <form method="post" class="panel tblcard" style="margin-top:20px">
+  {% if is_basketball %}
+    <div class="panel tblcard" style="margin-top:20px" id="individual-scoring">
+      <h3>Individual scoring</h3>
+      <div class="table-wrap" style="margin-top:12px">
+        <table class="dtable">
+          <thead>
+            <tr><th>Player</th><th>Jersey No.</th><th>1PT</th><th>2PT</th><th>3PT</th><th>Total</th><th>Fouls</th></tr>
+          </thead>
+          <tbody>
+            {% for r in individual_rows %}
+              <tr>
+                <td>{{ r.name }} <span class="dim" style="font-size:12px">({{ r.team_name }})</span></td>
+                <td class="mono">{{ r.jersey_number|default:'—' }}</td>
+                <td class="mono">{{ r.pt1 }}</td>
+                <td class="mono">{{ r.pt2 }}</td>
+                <td class="mono">{{ r.pt3 }}</td>
+                <td class="mono">{{ r.total }}</td>
+                <td class="mono">{{ r.fouls }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="muted">No individual scores or fouls recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post" class="panel tblcard" style="margin-top:20px" id="enter-result-panel">
     {% csrf_token %}
     <h3>Enter result</h3>
     <div class="stack" style="margin-top:16px">
@@ -46,7 +311,7 @@
     </div>
     <div class="row-flex" style="margin-top:20px">
       <button class="btn btn-secondary" name="action" value="save">Save progress</button>
-      <button class="btn btn-primary" name="action" value="finalize"
+      <button class="btn btn-primary" name="action" value="finalize" id="finalize-btn"
               onclick="return confirm('Finalize this match? Standings and brackets will update.')">
         Finalize result
       </button>
@@ -84,3 +349,4 @@
   </div>
 </section>
 {% endblock %}
+{% block scripts %}{% if is_basketball %}<script src="{% static 'js/match-clock.js' %}?v=3"></script><script src="{% static 'js/basketball-score.js' %}?v=3"></script>{% endif %}{% endblock %}

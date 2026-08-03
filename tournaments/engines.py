@@ -10,7 +10,6 @@ new engine code required.
 """
 import itertools
 import math
-import random
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -77,18 +76,39 @@ def _make_participant(fixture, entrant, slot):
     )
 
 
-def _seed_order(size):
-    """Standard single-elimination seeding positions for a bracket of `size`."""
-    order = [1]
-    while len(order) < size:
-        m = len(order) * 2 + 1
-        order = [x for pair in ((v, m - v) for v in order) for x in pair]
-    return order
+def _round_name(entrants_in_round):
+    """Label a round by how many entrants actually start it — not the next
+    power of two the bracket happens to be sized for — so a 10-team round 1
+    reads "Round of 10", never "Round of 16"."""
+    return {2: 'Final', 4: 'Semifinal', 8: 'Quarterfinal'}.get(
+        entrants_in_round, f'Round of {entrants_in_round}')
 
 
-def _round_name(matches_in_round):
-    return {1: 'Final', 2: 'Semifinal', 4: 'Quarterfinal'}.get(
-        matches_in_round, f'Round of {matches_in_round * 2}')
+def _round_robin_rounds(entrants):
+    """Circle-method round-robin schedule.
+
+    Returns a list of rounds; each round is a list of (a, b) entrant pairs.
+    Every pair meets exactly once, no entrant appears twice in the same round,
+    and an odd field yields exactly one bye per round (the entrant drawn against
+    the placeholder simply sits that round out). Correct for 2, 3, 4, and any
+    odd or even field.
+    """
+    field = list(entrants)
+    if len(field) % 2:               # odd field -> a placeholder that means "bye"
+        field.append(None)
+    n = len(field)
+    rounds = []
+    idx = list(range(n))
+    for _ in range(n - 1):
+        pairs = []
+        for i in range(n // 2):
+            a, b = field[idx[i]], field[idx[n - 1 - i]]
+            if a is not None and b is not None:  # skip the bye pairing
+                pairs.append((a, b))
+        rounds.append(pairs)
+        # Rotate every position but the first (standard circle rotation).
+        idx = [idx[0]] + [idx[-1]] + idx[1:-1]
+    return rounds
 
 
 class FormatEngine:
@@ -125,47 +145,58 @@ class BracketEngine(FormatEngine):
             return 0
         self._clear_fixtures()
 
-        size = 2 ** math.ceil(math.log2(n))
-        num_rounds = int(math.log2(size))
-        order = _seed_order(size)
-        # slots[position] = entrant or None (bye)
-        slots = [entrants[p - 1] if (p - 1) < n else None for p in order]
+        # Round-by-round slot counts, built forward from the actual team
+        # count instead of padding the whole draw out to the next power of
+        # two up front. sizes[0] = n; sizes[r] = number of fixture slots in
+        # round r = ceil(entrants-into-that-round / 2). A bye only appears
+        # in whichever round's own field happens to be odd, so an even
+        # field (10, 20, 24 teams, ...) plays a full round of real matches —
+        # Team 1 v Team 2, Team 3 v Team 4, ... — before any bye shows up
+        # anywhere in the bracket, instead of front-loading every bye into
+        # round 1 the way padding to the next power of two would.
+        sizes = [n]
+        while sizes[-1] > 1:
+            sizes.append(math.ceil(sizes[-1] / 2))
+        num_rounds = len(sizes) - 1
 
-        # Create all fixtures, round by round, and keep a grid for wiring.
+        # Create every fixture slot, round by round, and keep a grid for wiring.
         grid = {}
         for r in range(1, num_rounds + 1):
-            matches = size // (2 ** r)
-            for i in range(matches):
+            round_name = _round_name(sizes[r - 1])  # actual entrants starting this round
+            for i in range(sizes[r]):
                 grid[(r, i)] = Fixture.objects.create(
                     tournament=self.tournament, round_no=r, sequence=i,
-                    bracket_position=i, round_name=_round_name(matches),
+                    bracket_position=i, round_name=round_name,
                     created_by_id=getattr(self.tournament.organizer.user, 'id', None),
                 )
-        # Wire advancement r -> r+1
+        # Wire advancement r -> r+1. When a round's slot count is odd, its
+        # last target slot in the next round only ever gets one fixture
+        # wired into it here — that missing second wire is exactly what
+        # `_advance` uses to recognise a bye-through slot and auto-advance
+        # its lone entrant.
         for r in range(1, num_rounds):
-            matches = size // (2 ** r)
-            for i in range(matches):
+            for i in range(sizes[r]):
                 grid[(r, i)].advances_to = grid[(r + 1, i // 2)]
                 grid[(r, i)].advances_slot = i % 2
                 grid[(r, i)].save(update_fields=['advances_to', 'advances_slot'])
 
-        # Populate round 1 and auto-advance byes.
-        matches_r1 = size // 2
+        # Populate round 1 directly from the entrant list, pairing them in
+        # order (Team 1 vs Team 2, Team 3 vs Team 4, ...), and auto-advance
+        # a trailing bye if the field itself is odd.
+        matches_r1 = n // 2
         for i in range(matches_r1):
             fx = grid[(1, i)]
-            a, b = slots[2 * i], slots[2 * i + 1]
-            pa = _make_participant(fx, a, 0)
-            pb = _make_participant(fx, b, 1)
-            present = [(p, e) for p, e in ((pa, a), (pb, b)) if e is not None]
-            if len(present) == 1:  # bye -> auto advance
-                winner_p = present[0][0]
-                winner_p.is_winner = True
-                winner_p.save(update_fields=['is_winner'])
-                fx.status = 'COMPLETED'
-                fx.round_name = fx.round_name  # keep
-                fx.summary = 'Bye'
-                fx.save(update_fields=['status', 'summary'])
-                self._advance(fx, winner_p)
+            _make_participant(fx, entrants[2 * i], 0)
+            _make_participant(fx, entrants[2 * i + 1], 1)
+        if n % 2:
+            fx = grid[(1, matches_r1)]
+            bye_p = _make_participant(fx, entrants[-1], 0)
+            bye_p.is_winner = True
+            bye_p.save(update_fields=['is_winner'])
+            fx.status = 'COMPLETED'
+            fx.summary = 'Bye'
+            fx.save(update_fields=['status', 'summary'])
+            self._advance(fx, bye_p)
         return Fixture.objects.filter(tournament=self.tournament).count()
 
     def _advance(self, fixture, winner_participant):
@@ -179,6 +210,18 @@ class BracketEngine(FormatEngine):
         tp.is_winner = None
         tp.score = None
         tp.save()
+
+        # A target with only one fixture wired into it went odd on its own
+        # round and will never get a second competitor — the lone entrant
+        # advances immediately without a match, the same way a first-round
+        # bye already does, cascading through as many rounds as needed.
+        if Fixture.objects.filter(advances_to=target).count() == 1:
+            tp.is_winner = True
+            tp.save(update_fields=['is_winner'])
+            target.status = 'COMPLETED'
+            target.summary = 'Bye'
+            target.save(update_fields=['status', 'summary'])
+            self._advance(target, tp)
 
     @transaction.atomic
     def record_result(self, fixture, data):
@@ -237,6 +280,23 @@ class PointsTableEngine(FormatEngine):
                     created_by_id=getattr(self.tournament.organizer.user, 'id', None))
                 for e in entrants:
                     _make_participant(fx, e, 0)
+        elif self.tournament.sport.slug == 'basketball':
+            # Basketball league: schedule the round-robin into balanced rounds
+            # (circle method) instead of a flat combinations dump. Every team
+            # still plays every other exactly once, but at most one game per
+            # team per round, in a clear round-by-round order, with a bye per
+            # round when the field is odd. Other round-robin sports are
+            # untouched (they fall through to the branch below).
+            seq = 0
+            for rno, pairs in enumerate(_round_robin_rounds(entrants), start=1):
+                for a, b in pairs:
+                    fx = Fixture.objects.create(
+                        tournament=self.tournament, round_no=rno, sequence=seq,
+                        round_name=f'Round {rno}',
+                        created_by_id=getattr(self.tournament.organizer.user, 'id', None))
+                    _make_participant(fx, a, 0)
+                    _make_participant(fx, b, 1)
+                    seq += 1
         else:
             seq = 0
             for a, b in itertools.combinations(entrants, 2):
@@ -449,8 +509,3 @@ _ENGINES = {
 
 def get_engine(tournament):
     return _ENGINES[tournament.format](tournament)
-
-
-def random_seed_entrants(entrants):
-    random.shuffle(entrants)
-    return entrants

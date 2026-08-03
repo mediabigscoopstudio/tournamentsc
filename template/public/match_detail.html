@@ -44,6 +44,19 @@
           </table></div>
 
         {% elif participants|length == 2 %}
+          {% if is_basketball and fixture.status == 'LIVE' %}
+            <div class="match-clock-row">
+              <span class="match-clock-label">Time remaining</span>
+              <span class="bball-digital-clock" data-quarter-clock
+                    data-clock-status="{{ fixture.status }}"
+                    data-started-at="{{ fixture.live_started_at|date:'c' }}"
+                    data-extra-seconds="{{ fixture.extra_time_seconds }}"
+                    data-quarter-length-seconds="{{ fixture.quarter_length_seconds }}"
+                    data-paused="{% if fixture.clock_paused_at %}1{% else %}0{% endif %}"
+                    data-paused-remaining-seconds="{{ fixture.paused_quarter_remaining_seconds|default_if_none:'' }}">10:00</span>
+              <span class="badge badge-upcoming" data-clock-paused-badge {% if not fixture.clock_paused_at %}hidden{% endif %}>Paused</span>
+            </div>
+          {% endif %}
           <div class="scoreboard-main" aria-live="polite">
             {% for p in participants %}
               {% if forloop.first %}
@@ -75,8 +88,16 @@
         {% endif %}
       </div>
 
-      {% if yt_id %}<div class="embed"><iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0" allowfullscreen title="Stream"></iframe></div>
-      {% elif fixture.effective_youtube_url %}<a class="btn btn--secondary" href="{{ fixture.effective_youtube_url }}" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg> Watch on YouTube</a>{% endif %}
+      <div class="watch-cta">
+        {% if fixture.effective_youtube_url %}
+          <a class="btn btn-primary btn--lg watch-cta__btn" href="{{ fixture.effective_youtube_url }}"
+             target="_blank" rel="noopener">
+            <svg class="ico"><use href="#i-play"/></svg> Watch Full Match
+          </a>
+        {% else %}
+          <button class="btn btn-secondary btn--lg watch-cta__btn" type="button" disabled>Video Not Available</button>
+        {% endif %}
+      </div>
 
       {% if highlight %}
         <div class="panel">
@@ -114,4 +135,7 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'js/live-scores.js' %}"></script>{% endblock %}
+{% block scripts %}
+  {% if is_basketball %}<script src="{% static 'js/match-clock.js' %}"></script>{% endif %}
+  <script src="{% static 'js/live-scores.js' %}"></script>
+{% endblock %}

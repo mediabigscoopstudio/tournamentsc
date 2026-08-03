@@ -34,19 +34,13 @@
       <p class="muted">{{ participant_count }} added · {% if tournament.is_team_based %}teams{% else %}individuals{% endif %}</p>
     </a>
 
-    <form class="panel tblcard" method="post" action="{% url 'fixtures_generate' tournament.slug %}"
-          {% if tournament.fixtures_generated %}onsubmit="return confirm('Regenerate fixtures? Existing fixtures and their scores will be replaced.')"{% endif %}>
-      {% csrf_token %}
+    <a class="panel tblcard" href="{% url 'fixtures_manage' tournament.slug %}">
       <h3>② Fixtures</h3>
-      <p class="muted">{{ fixtures|length }} generated</p>
-      <div class="row-flex" style="margin-top:8px">
-        <label class="dim" style="font-size:13px"><input type="radio" name="seeding" value="seed" checked> By seed</label>
-        <label class="dim" style="font-size:13px"><input type="radio" name="seeding" value="random"> Random</label>
-      </div>
-      <button class="btn btn-primary btn-sm" type="submit" style="margin-top:12px">
-        {% if tournament.fixtures_generated %}Regenerate{% else %}Generate{% endif %} fixtures
-      </button>
-    </form>
+      <p class="muted">
+        {% if manual_mode %}{{ fixtures|length }} added · By Organiser
+        {% else %}{{ fixtures|length }} generated{% endif %}
+      </p>
+    </a>
 
     <a class="panel tblcard" href="{% url 'fixtures_manage' tournament.slug %}">
       <h3>③ Schedule &amp; live scoring</h3>

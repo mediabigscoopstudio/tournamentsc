@@ -25,6 +25,12 @@ def is_probable_youtube_url(url):
     return ('youtube.com' in url) or ('youtu.be' in url)
 
 
+def is_probable_google_form_url(url):
+    if not url:
+        return False
+    return ('forms.gle' in url) or ('docs.google.com/forms' in url)
+
+
 def format_ms(ms):
     """Milliseconds -> H:MM:SS.mmm style clock for time-trial/marathon display."""
     if ms is None:

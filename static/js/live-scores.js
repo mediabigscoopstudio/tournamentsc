@@ -10,7 +10,11 @@
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const endpoint = '/api/fixtures/' + fixtureId + '/live';
-  const POLL_MS = 12000;
+  // Short enough that a pause/resume on the organizer's clock reaches this
+  // page well within a few seconds — no manual reload needed to stay in
+  // sync. setText() only flashes on an actual value change, so polling more
+  // often doesn't make the score flash any more than before.
+  const POLL_MS = 4000;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => (
@@ -46,10 +50,32 @@
     board.classList.remove('is-live');
   }
 
+  // Keeps the public page's quarter clock (static/js/match-clock.js) in step
+  // with the organizer's — same element, same data-* attributes, just
+  // refreshed from this same poll instead of a second timer implementation.
+  // `data.clock` is only present for basketball fixtures (see fixture_live_json).
+  function updateClock(status, clock) {
+    const clockEl = document.querySelector('[data-quarter-clock]');
+    if (!clockEl || !clock) return;
+    clockEl.setAttribute('data-clock-status', status);
+    clockEl.setAttribute('data-started-at', clock.started_at || '');
+    clockEl.setAttribute('data-extra-seconds', clock.extra_seconds);
+    clockEl.setAttribute('data-quarter-length-seconds', clock.quarter_length_seconds);
+    clockEl.setAttribute('data-paused', clock.paused ? '1' : '0');
+    clockEl.setAttribute('data-paused-remaining-seconds',
+      clock.paused_remaining_seconds !== null && clock.paused_remaining_seconds !== undefined
+        ? clock.paused_remaining_seconds : '');
+
+    const pausedBadge = document.querySelector('[data-clock-paused-badge]');
+    if (pausedBadge) pausedBadge.hidden = !clock.paused;
+
+    if (window.bballInitClocks) window.bballInitClocks();
+  }
+
   async function poll() {
     board.classList.add('is-updating');
     try {
-      const res = await fetch(endpoint, { headers: { 'X-Requested-With': 'fetch' } });
+      const res = await fetch(endpoint, { headers: { 'X-Requested-With': 'fetch' }, cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
 
@@ -61,6 +87,7 @@
       });
 
       updateProbability(data.win_probability);
+      updateClock(data.status, data.clock);
 
       const feed = document.querySelector('[data-feed]');
       if (feed && data.events) {

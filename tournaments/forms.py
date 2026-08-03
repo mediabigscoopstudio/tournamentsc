@@ -2,7 +2,7 @@ from django import forms
 
 from .models import (EventCategory, Fixture, Highlight, IndividualRegistration, Sport, Team,
                      TeamMembership, Tournament, TournamentTeamEntry, Venue)
-from .utils import is_probable_youtube_url
+from .utils import is_probable_google_form_url, is_probable_youtube_url
 
 
 class TournamentForm(forms.ModelForm):
@@ -10,7 +10,8 @@ class TournamentForm(forms.ModelForm):
         model = Tournament
         fields = ['name', 'sport', 'format', 'description', 'rules', 'venue', 'city',
                   'start_date', 'end_date', 'registration_deadline',
-                  'banner_image', 'entry_fee', 'prize_pool', 'max_participants', 'youtube_url']
+                  'banner_image', 'entry_fee', 'prize_pool', 'max_participants', 'youtube_url',
+                  'registration_form_url']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
             'rules': forms.Textarea(attrs={'rows': 3,
@@ -24,6 +25,7 @@ class TournamentForm(forms.ModelForm):
         self.locked = kwargs.pop('locked', False)  # after fixtures exist
         super().__init__(*args, **kwargs)
         self.fields['venue'].empty_label = 'No venue set'
+        self.fields['registration_form_url'].label = 'Google Form Registration Link'
         if self.locked:
             for f in ('sport', 'format'):
                 self.fields[f].disabled = True
@@ -48,6 +50,10 @@ class TournamentForm(forms.ModelForm):
         url = cleaned.get('youtube_url')
         if url and not is_probable_youtube_url(url):
             self.add_error('youtube_url', 'Enter a valid youtube.com or youtu.be URL.')
+        form_url = cleaned.get('registration_form_url')
+        if form_url and not is_probable_google_form_url(form_url):
+            self.add_error('registration_form_url',
+                           'Enter a valid Google Form link (forms.gle or docs.google.com/forms).')
         return cleaned
 
 

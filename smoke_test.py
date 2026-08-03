@@ -242,11 +242,14 @@ try:
     entry.refresh_from_db()
     check('organizer can approve a team entry', entry.status == 'APPROVED', entry.status)
 
-    # Fixture generation publishes the tournament
-    code, r = status(oc, f'/organizer/t/{e2e.slug}/fixtures/generate', 'post', data={'seeding': 'seed'})
+    # Basketball is knockout format -> fixtures are now arranged by the organiser
+    # (Seed/Random auto-generation was replaced by manual fixture creation).
+    team_ids = list(e2e.team_entries.filter(status='APPROVED').values_list('team_id', flat=True))
+    code, r = status(oc, f'/organizer/t/{e2e.slug}/fixtures/add-manual', 'post', data={
+        'entrant_a': f'team:{team_ids[0]}', 'entrant_b': f'team:{team_ids[1]}'})
     e2e.refresh_from_db()
-    check('fixtures generated', e2e.fixtures.count() >= 1, e2e.fixtures.count())
-    check('generating fixtures published it', e2e.status == 'PUBLISHED', e2e.status)
+    check('organiser-created fixture saved', e2e.fixtures.count() >= 1, e2e.fixtures.count())
+    check('creating a fixture published the tournament', e2e.status == 'PUBLISHED', e2e.status)
 
     efx = e2e.fixtures.first()
     for url in [f'/organizer/t/{e2e.slug}/fixtures',

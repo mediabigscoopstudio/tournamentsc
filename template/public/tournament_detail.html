@@ -60,6 +60,12 @@
             <svg class="ico"><use href="#i-play"/></svg> Watch live
           </a>
         {% endif %}
+
+        {% if tournament.registration_form_url %}
+          <a class="btn btn--secondary" href="{{ tournament.registration_form_url }}" target="_blank" rel="noopener noreferrer">
+            <svg class="ico"><use href="#i-flag"/></svg> Registration Form
+          </a>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -74,6 +80,7 @@
       {% elif leaderboard %}<button class="tab" data-tab="leaderboard">Leaderboard</button>{% endif %}
       <button class="tab" data-tab="fixtures">Fixtures</button>
       <button class="tab" data-tab="entrants">{% if tournament.is_team_based %}Teams{% else %}Entrants{% endif %}</button>
+      {% if goals_table is not None %}<button class="tab" data-tab="goals">Goals Table</button>{% endif %}
       {% if highlights %}<button class="tab" data-tab="highlights">Highlights</button>{% endif %}
     </div>
 
@@ -157,6 +164,13 @@
         {% empty %}<div class="empty">No participants yet.</div>{% endfor %}
       </div>
     </div>
+
+    <!-- GOALS TABLE -->
+    {% if goals_table is not None %}
+    <div class="tabpanel" data-panel="goals">
+      {% include 'public/_goals_table.html' %}
+    </div>
+    {% endif %}
 
     <!-- HIGHLIGHTS -->
     {% if highlights %}

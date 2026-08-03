@@ -50,6 +50,18 @@
               <input class="input" name="jersey_number" placeholder="#" style="max-width:70px">
               <button class="btn btn-secondary btn-sm">Add member</button>
             </form>
+
+            {% if tournament.sport.slug == 'basketball' %}
+              <form method="post" enctype="multipart/form-data"
+                    action="{% url 'team_members_bulk_import' tournament.slug e.team.id %}"
+                    class="row-flex" style="margin-top:8px">
+                {% csrf_token %}
+                <input class="input" type="file" name="roster_file" accept=".csv,.xlsx" required
+                       style="max-width:260px">
+                <button class="btn btn-ghost btn-sm">Import CSV / Excel</button>
+                <span class="dim" style="font-size:.85em">Columns: Player Name, Jersey Number</span>
+              </form>
+            {% endif %}
           </div>
         {% empty %}
           <div class="empty">No teams yet. Add one on the right.</div>
@@ -102,6 +114,16 @@
                 action="{% url 'team_add' tournament.slug %}" style="margin-top:12px">
             {% csrf_token %}{% include 'partials/form.html' with form=team_form %}
             <button class="btn btn-primary btn-block">Add team</button>
+          </form>
+
+          <div class="divider"></div>
+          <h3>Upload Teams Excel/CSV File</h3>
+          <p class="muted" style="margin-top:4px; font-size:13px">Bulk-add teams from a file — one column, "Team Name".</p>
+          <form method="post" enctype="multipart/form-data"
+                action="{% url 'teams_bulk_import' tournament.slug %}" style="margin-top:12px">
+            {% csrf_token %}
+            <input class="input" type="file" name="teams_file" accept=".csv,.xlsx" required style="width:100%">
+            <button class="btn btn-secondary btn-block" style="margin-top:12px">Import teams</button>
           </form>
         {% else %}
           <h3>Add an entrant</h3>

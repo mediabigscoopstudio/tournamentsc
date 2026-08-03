@@ -555,6 +555,13 @@ a.fixture-row:hover, a.frow:hover{ text-decoration:none; box-shadow:var(--shadow
 .score-num.flash{ background:color-mix(in srgb,var(--green) 24%,#fff); }
 .winner{ color:var(--green); }
 
+/* public match page: live quarter clock (mirrors the organizer scoring page) */
+.match-clock-row{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+.match-clock-label{ font-family:var(--font-score); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+/* .badge's own `display` would otherwise beat the browser's default
+   [hidden]{display:none} rule (same specificity, author sheet loads later). */
+.match-clock-row [hidden]{ display:none; }
+
 /* commentary feed */
 .feed{ list-style:none; padding:0; margin:0; }
 .feed li{ padding:10px 0; border-top:1px solid var(--line); font-size:14px; display:flex; gap:12px; }
@@ -563,6 +570,11 @@ a.fixture-row:hover, a.frow:hover{ text-decoration:none; box-shadow:var(--shadow
 /* youtube embed */
 .embed{ position:relative; aspect-ratio:16/9; border-radius:var(--r-lg); overflow:hidden; border:1px solid var(--line); background:var(--bg-2); }
 .embed iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+
+/* public match page: "Watch Full Match" call-to-action (replaces the embed) */
+.watch-cta{ display:flex; align-items:center; justify-content:center; padding:36px 16px;
+  border-radius:var(--r-lg); border:1px solid var(--line); background:var(--bg-2); }
+.watch-cta__btn{ width:100%; max-width:320px; }
 
 /* forms */
 .field{ margin-bottom:20px; }
@@ -670,4 +682,159 @@ a.authcard:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-c
   .frow{ grid-template-columns:1fr auto 1fr; gap:8px; padding:11px 12px; }
   .frow .ft{ font-size:13px; }
   .tabs{ gap:0; } .tab{ padding:12px 14px; font-size:14px; }
+  /* Organiser fixture-management row (Schedule/Score/Highlight/Delete): four
+     actions squeeze the match-name column down to a sliver at phone widths.
+     Stack instead of squeezing, same as the other action rows on this page. */
+  .fx-row{ grid-template-columns:1fr; }
+  .fx-row > .row-flex{ margin-top:10px; }
+}
+
+/* ======================================================================
+   Basketball score dashboard (organizer/score.html, basketball only —
+   see the `is_basketball` gate in tournaments/views.py::score_fixture).
+   Namespaced under .bball- so nothing here can collide with any other
+   sport's scoring page or with the shared .panel/.tblcard/.dtable/.btn
+   classes used elsewhere on this same page.
+   ====================================================================== */
+.bball-game-view{ background:var(--bg); }
+.bball-game-view:fullscreen,
+.bball-game-view.bball-pseudo-fullscreen{
+  display:flex; flex-direction:column; justify-content:center; gap:0;
+  width:100%; height:100%; min-height:100vh; overflow-y:auto;
+  padding:20px; box-sizing:border-box;
+}
+.bball-game-view.bball-pseudo-fullscreen{ position:fixed; inset:0; z-index:1000; }
+.bball-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; flex-wrap:wrap; }
+.bball-back{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px;
+  border-radius:50%; background:var(--bg-2); color:var(--navy); font-size:18px; text-decoration:none; flex:none;
+  border:none; cursor:pointer; font-family:inherit; }
+.bball-back:hover{ background:var(--bg-3); }
+.bball-team-name{ font-family:var(--font-display); font-weight:800; font-size:15px; flex:1 1 0; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bball-team-name--a{ text-align:left; color:var(--orange-d); }
+.bball-team-name--b{ text-align:right; color:var(--navy); }
+.bball-clock-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; }
+.bball-quarter-nav{ display:flex; align-items:center; gap:8px; }
+.bball-quarter-nav form{ display:contents; }
+.bball-quarter-arrow{ width:30px; height:30px; border-radius:50%; border:none; background:var(--bg-2);
+  color:var(--navy); font-size:16px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+.bball-quarter-arrow:hover{ background:var(--bg-3); }
+.bball-quarter-pill{ font-family:var(--font-display); font-weight:800; font-size:13px; padding:6px 16px;
+  border-radius:var(--r-pill); border:1.6px solid var(--navy); color:var(--navy); min-width:52px; text-align:center; }
+.bball-menu{ position:relative; flex:none; }
+.bball-menu > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; width:40px;
+  height:40px; border-radius:50%; background:var(--bg-2); color:var(--navy); font-size:18px; cursor:pointer; }
+.bball-menu > summary::-webkit-details-marker{ display:none; }
+.bball-menu[open] > summary{ background:var(--bg-3); }
+.bball-menu-panel{ position:absolute; right:0; top:48px; z-index:20; background:#fff; border:1px solid var(--line);
+  border-radius:var(--r-lg); box-shadow:var(--shadow); padding:8px; display:flex; flex-direction:column; gap:4px;
+  min-width:230px; }
+.bball-menu-form{ display:contents; }
+.bball-menu-item{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:none;
+  border:none; padding:10px 12px; border-radius:8px; font-weight:600; font-size:14px; color:var(--ink); cursor:pointer;
+  font-family:var(--font-body); }
+.bball-menu-item:hover{ background:var(--bg-2); }
+.bball-menu-item:disabled{ opacity:.45; cursor:not-allowed; }
+.bball-menu-item:disabled:hover{ background:none; }
+.bball-menu-item--danger{ color:var(--live); }
+.bball-menu-extra{ display:flex; align-items:center; gap:6px; padding:2px 12px 6px; }
+.bball-menu-extra .input{ padding:8px; font-size:13px; min-width:0; }
+
+.bball-dashboard{ margin-top:28px; }
+.bball-board-row{ display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap; }
+.bball-fouls-card{ background:var(--bg-2); border-radius:var(--r-lg); padding:12px 18px; text-align:center; min-width:96px; }
+.bball-fouls-label{ display:block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); }
+.bball-fouls-count{ display:block; font-family:var(--font-score); font-weight:700; font-size:28px; color:var(--navy);
+  margin:4px 0; }
+.bball-fouls-btns{ display:flex; gap:6px; justify-content:center; }
+.bball-fouls-btns form{ display:contents; }
+.bball-fouls-btn{ width:30px; height:30px; border-radius:8px; border:none; background:var(--bg-3); color:var(--navy);
+  font-weight:800; font-size:16px; cursor:pointer; font-family:var(--font-body); }
+.bball-fouls-btn--plus{ background:var(--navy); color:#fff; }
+.bball-fouls-btn:hover{ opacity:.85; }
+
+.bball-scoreboard{ display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap; }
+.bball-score{ font-family:var(--font-score); font-weight:700; font-size:clamp(56px,9vw,96px); line-height:1;
+  font-variant-numeric:tabular-nums; }
+.bball-score--a{ color:var(--orange); }
+.bball-score--b{ color:var(--navy); }
+.bball-score-wrap{ position:relative; display:inline-flex; }
+.bball-score-wrap form{ display:contents; }
+.bball-score-adjust{ position:absolute; top:-4px; right:-10px; width:22px; height:22px; border-radius:50%;
+  border:none; background:var(--bg-3); color:var(--ink-2); font-weight:800; font-size:13px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
+.bball-score-adjust:hover{ background:var(--line-2); }
+
+.bball-clock-stack{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+.bball-digital-clock{ font-family:var(--font-score); font-variant-numeric:tabular-nums; font-weight:700;
+  font-size:22px; color:var(--live); background:var(--navy); border-radius:var(--r-md); padding:6px 14px;
+  letter-spacing:.04em; }
+.bball-shot-clock{ font-family:var(--font-score); font-variant-numeric:tabular-nums; font-weight:700;
+  font-size:16px; color:var(--gold); background:var(--navy); border-radius:var(--r-sm); padding:3px 12px;
+  letter-spacing:.04em; }
+.bball-clock-controls{ display:flex; align-items:center; gap:6px; }
+.bball-clock-controls form{ display:contents; }
+.bball-clock-icon-btn{ width:28px; height:28px; border-radius:50%; border:none; background:var(--bg-2);
+  color:var(--navy); font-size:13px; display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer; }
+.bball-clock-icon-btn:hover{ background:var(--bg-3); }
+.bball-clock-icon-btn--sm{ width:22px; height:22px; font-size:11px; }
+.bball-quarter-length-btn{ border:1.6px solid var(--line-2); background:#fff; color:var(--ink-2); font-weight:700;
+  font-size:11px; padding:4px 10px; border-radius:var(--r-pill); cursor:pointer; font-family:var(--font-body); }
+.bball-quarter-length-btn:hover{ border-color:var(--navy); color:var(--navy); }
+
+.bball-buttons-row{ display:flex; align-items:center; justify-content:center; gap:28px; margin-top:28px; flex-wrap:wrap; }
+.bball-team-buttons{ display:flex; gap:14px; }
+.bball-point-btn{ width:64px; height:64px; border-radius:50%; border:none; color:#fff; font-family:var(--font-display);
+  font-weight:800; font-size:17px; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .18s var(--ease); }
+.bball-point-btn:hover{ transform:translateY(-2px); }
+.bball-point-btn--a{ background:var(--orange); }
+.bball-point-btn--b{ background:var(--navy); }
+
+.bball-player-dialog{ border:none; border-radius:var(--r-lg); padding:20px; box-shadow:var(--shadow); max-width:340px;
+  width:90vw; }
+.bball-player-dialog::backdrop{ background:rgba(10,14,30,.45); }
+.bball-roster-list{ display:flex; flex-direction:column; gap:6px; margin:14px 0; max-height:280px; overflow-y:auto; }
+.bball-roster-btn{ text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:#fff;
+  font-weight:600; font-size:14px; color:var(--navy); cursor:pointer; font-family:var(--font-body); }
+.bball-roster-btn:hover{ background:var(--bg-2); border-color:var(--navy); }
+.bball-roster-btn--team{ border-style:dashed; color:var(--ink-2); font-style:italic; }
+
+.bball-highlight{ animation:bballHighlight 1.5s ease-out; }
+@keyframes bballHighlight{ 0%{ box-shadow:0 0 0 3px color-mix(in srgb,var(--orange) 45%,#fff); } 100%{ box-shadow:none; } }
+
+@media (max-width:640px){
+  .bball-header{ gap:8px; }
+  .bball-team-name{ font-size:12px; }
+  .bball-board-row{ gap:14px; }
+  .bball-score{ font-size:clamp(40px,14vw,64px); }
+  .bball-buttons-row{ gap:14px; }
+  .bball-team-buttons{ gap:8px; }
+  .bball-point-btn{ width:52px; height:52px; font-size:14px; }
+  .bball-fouls-card{ min-width:76px; padding:8px 10px; }
+  .bball-menu-panel{ min-width:200px; right:-8px; }
+  .bball-scoreboard{ gap:10px; }
+  .bball-digital-clock{ font-size:17px; padding:5px 10px; }
+  .bball-shot-clock{ font-size:13px; padding:2px 9px; }
+  .bball-clock-icon-btn{ width:24px; height:24px; font-size:11px; }
+  .bball-clock-icon-btn--sm{ width:20px; height:20px; font-size:10px; }
+  .bball-quarter-length-btn{ font-size:10px; padding:3px 8px; }
+  .bball-score-adjust{ width:18px; height:18px; font-size:11px; top:-2px; right:-6px; }
+}
+
+/* Fullscreen game view on a landscape phone: short viewport height, so the
+   vertical rhythm that works in the normal in-page layout needs tightening
+   to fit everything without scrolling. */
+@media (orientation:landscape) and (max-height:500px){
+  .bball-game-view:fullscreen .bball-header,
+  .bball-game-view.bball-pseudo-fullscreen .bball-header{ margin-top:0; }
+  .bball-game-view:fullscreen .bball-dashboard,
+  .bball-game-view.bball-pseudo-fullscreen .bball-dashboard{ margin-top:14px; }
+  .bball-game-view:fullscreen .bball-buttons-row,
+  .bball-game-view.bball-pseudo-fullscreen .bball-buttons-row{ margin-top:14px; }
+  .bball-game-view:fullscreen .bball-score,
+  .bball-game-view.bball-pseudo-fullscreen .bball-score{ font-size:clamp(36px,10vh,64px); }
+  .bball-game-view:fullscreen .bball-point-btn,
+  .bball-game-view.bball-pseudo-fullscreen .bball-point-btn{ width:48px; height:48px; font-size:13px; }
 }

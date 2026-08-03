@@ -1,0 +1,29 @@
+{% comment %}
+Tournament-wide individual scoring leaderboard. Shared by the tournament
+detail tab only (no standalone page yet). Context: goals_table (a list, may
+be empty — the tab itself is only shown when it's not None; see
+main.views._goals_table_context).
+{% endcomment %}
+{% if goals_table %}
+  <div class="tblcard"><h4>Goals table</h4>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th class="n">Rank</th><th>Player</th><th class="n">Jersey No.</th>
+        <th>Team</th><th class="n">Total</th>
+      </tr></thead>
+      <tbody>
+        {% for r in goals_table %}
+          <tr class="{% if forloop.counter <= 2 %}qual{% endif %}">
+            <td class="n"><span class="rk" style="margin-left:auto">{{ forloop.counter }}</span></td>
+            <td><div class="tcell">{{ r.name }}</div></td>
+            <td class="n">{{ r.jersey_number|default:'—' }}</td>
+            <td>{{ r.team_name }}</td>
+            <td class="pts">{{ r.total }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+{% else %}
+  <div class="empty">No goals recorded yet.</div>
+{% endif %}

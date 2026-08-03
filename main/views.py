@@ -13,7 +13,7 @@ from accounts.decorators import player_required
 from accounts.models import Follow, PlayerProfile
 from dash.models import News
 from tournaments import constants as C
-from tournaments.models import (Fixture, Highlight, Sport, Team, Tournament,
+from tournaments.models import (Fixture, Highlight, ScoreEvent, Sport, Team, Tournament,
                                 TournamentTeamEntry)
 from tournaments.stats import player_results, player_schedule
 from tournaments.utils import format_ms, youtube_id
@@ -195,6 +195,38 @@ def _detail_context(tournament):
     return ctx
 
 
+def _goals_table_context(tournament):
+    """Tournament-wide individual scoring leaderboard: rolls up the same
+    per-fixture ScoreEvent rows the live-scoring view records (event_type=
+    'score', see tournaments.views._basketball_scoring_context) across every
+    fixture in this tournament — no separate scoring system, just a wider
+    aggregate of the existing one.
+
+    Team-based only: jersey numbers and rosters live on TeamMembership, which
+    only exists for team-based sports, so an individual-registration
+    tournament has no "team/jersey" shape to show here. Returns None for
+    those (hides the tab); returns a list — possibly empty — otherwise.
+    """
+    if not tournament.is_team_based:
+        return None
+    totals = {}
+    events = ScoreEvent.objects.filter(
+        fixture__tournament=tournament, fixture__is_removed=False, event_type='score'
+    ).select_related('participant__team')
+    for ev in events:
+        snap = ev.score_snapshot or {}
+        mid = snap.get('membership_id')
+        pts = snap.get('points')
+        if not mid or not isinstance(pts, (int, float)):
+            continue
+        row = totals.setdefault(mid, {
+            'name': snap.get('player_name', ''), 'jersey_number': snap.get('jersey_number', ''),
+            'team_name': ev.participant.name if ev.participant else '', 'total': 0,
+        })
+        row['total'] += pts
+    return sorted(totals.values(), key=lambda r: (-r['total'], r['name'].lower()))
+
+
 def tournament_detail(request, slug):
     tournament = get_object_or_404(
         Tournament.objects.select_related('sport', 'organizer__user', 'venue'), slug=slug)
@@ -207,6 +239,7 @@ def tournament_detail(request, slug):
 
     ctx = {'tournament': tournament, 'yt_id': youtube_id(tournament.youtube_url)}
     ctx.update(_detail_context(tournament))
+    ctx['goals_table'] = _goals_table_context(tournament)
     if tournament.is_team_based:
         ctx['entries'] = tournament.team_entries.filter(status='APPROVED').select_related('team')
     else:
@@ -245,12 +278,15 @@ def match_detail(request, slug, pk):
         'tournament': tournament,
         'fixture': fixture,
         'participants': fixture.ordered_participants(),
-        'yt_id': youtube_id(fixture.effective_youtube_url),
         'highlight': highlight,
         'events': fixture.events.all()[:30],
         'is_time': tournament.format in (C.FORMAT_TIME_TRIAL, C.FORMAT_SINGLE_EVENT),
         'is_lobby': (tournament.format == C.FORMAT_ROUND_ROBIN
                      and tournament.sport.slug == 'mobile-esports'),
+        # Drives the same quarter-clock markup/JS the organizer scoring page
+        # uses (see template/organizer/score.html + static/js/match-clock.js)
+        # — basketball only, same as that page.
+        'is_basketball': tournament.sport.slug == 'basketball',
         'win_probability': fixture.win_probability,
         'format_ms': format_ms,
     })
