@@ -141,8 +141,8 @@ mobile esports → points-table · racing → time-trial · marathon → single-
 
 `/dashboard/settings/` (superuser only) drives real behaviour: closing player or
 organizer registration disables those sign-up pages; auto-approve skips the
-organizer review queue; maintenance mode shows a site-wide notice; site name,
-tagline and meta description are used across the public templates.
+organizer review queue; site name, tagline and meta description are used
+across the public templates.
 
 ### Live scores
 

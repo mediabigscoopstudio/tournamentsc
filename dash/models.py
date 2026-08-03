@@ -178,11 +178,6 @@ class SiteSetting(models.Model):
         default=True, help_text='Turn off to close new organizer sign-ups.')
     auto_approve_organizers = models.BooleanField(
         default=False, help_text='Approve organizer applications without manual review.')
-    maintenance_mode = models.BooleanField(
-        default=False, help_text='Show a maintenance notice to the public site.')
-    maintenance_message = models.CharField(
-        max_length=300, blank=True,
-        default='TournamentSC is undergoing scheduled maintenance. Live scores may be delayed.')
     live_score_poll_seconds = models.PositiveIntegerField(default=12)
     featured_limit = models.PositiveIntegerField(default=5)
 

@@ -195,10 +195,8 @@ class SiteSettingForm(forms.ModelForm):
         model = SiteSetting
         fields = ['site_name', 'tagline', 'support_email', 'contact_phone', 'meta_description',
                   'allow_player_registration', 'allow_organizer_registration',
-                  'auto_approve_organizers', 'maintenance_mode', 'maintenance_message',
-                  'live_score_poll_seconds', 'featured_limit']
-        widgets = {'meta_description': forms.Textarea(attrs={'rows': 2}),
-                   'maintenance_message': forms.Textarea(attrs={'rows': 2})}
+                  'auto_approve_organizers', 'live_score_poll_seconds', 'featured_limit']
+        widgets = {'meta_description': forms.Textarea(attrs={'rows': 2})}
 
     def clean_live_score_poll_seconds(self):
         value = self.cleaned_data['live_score_poll_seconds']

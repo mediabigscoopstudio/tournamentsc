@@ -460,13 +460,6 @@ try:
     body = anon.get('/').content.decode()
     check('an archived announcement disappears', 'Finals this weekend.' not in body)
 
-    conf.maintenance_mode = True
-    conf.maintenance_message = 'Back at 6pm.'
-    conf.save()
-    check('maintenance mode shows a public notice', 'Back at 6pm.' in anon.get('/').content.decode())
-    conf.maintenance_mode = False
-    conf.save()
-
     # ---------------------------------------------------------------
     section('File uploads (media root)')
     from django.core.files.uploadedfile import SimpleUploadedFile

@@ -34,7 +34,7 @@
     <h3>Application settings</h3>
     <p class="muted" style="margin-bottom:14px">Who can register, how organizers are approved, and how the live site behaves.</p>
     {% for field in form %}
-      {% if field.name == 'allow_player_registration' or field.name == 'allow_organizer_registration' or field.name == 'auto_approve_organizers' or field.name == 'maintenance_mode' %}
+      {% if field.name == 'allow_player_registration' or field.name == 'allow_organizer_registration' or field.name == 'auto_approve_organizers' %}
         <div class="field-check {% if field.errors %}has-error{% endif %}">
           {{ field }}
           <label for="{{ field.id_for_label }}">
@@ -47,7 +47,7 @@
     {% endfor %}
 
     {% for field in form %}
-      {% if field.name == 'maintenance_message' or field.name == 'live_score_poll_seconds' or field.name == 'featured_limit' %}
+      {% if field.name == 'live_score_poll_seconds' or field.name == 'featured_limit' %}
         <div class="field {% if field.errors %}has-error{% endif %}">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field|add_class:'input' }}
