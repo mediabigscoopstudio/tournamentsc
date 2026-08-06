@@ -44,6 +44,12 @@
   }
 
   function initDashboard() {
+    // Set once per match on the pre-match setup screen (score.html) — read
+    // straight off the DOM rather than duplicated into JS state, so there is
+    // nothing here to fall out of sync with the server's value.
+    const bballView = document.getElementById('bball-game-view');
+    const individualScoringEnabled = !bballView || bballView.getAttribute('data-individual-scoring') !== '0';
+
     document.querySelectorAll('#bball-game-view form').forEach(function (form) {
       form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -64,6 +70,17 @@
       btn.addEventListener('click', function () {
         const participantId = btn.getAttribute('data-bball-open');
         const points = btn.getAttribute('data-bball-points');
+        // Individual scoring off: apply the points straight to the team,
+        // same score-form as the roster-pick path below just posts with no
+        // membership_id — skip the "who scored?" dialog entirely.
+        if (!individualScoringEnabled) {
+          const pointsInput = document.getElementById('points-input-' + participantId);
+          const form = document.getElementById('score-form-' + participantId);
+          if (!pointsInput || !form) return;
+          pointsInput.value = points;
+          bballSubmit(form);
+          return;
+        }
         const dialog = document.getElementById('player-dialog-' + participantId);
         if (!dialog) return;
         dialog.setAttribute('data-bball-active-points', points);
@@ -96,7 +113,16 @@
 
     document.querySelectorAll('[data-bball-open-foul]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        const dialog = document.getElementById('foul-dialog-' + btn.getAttribute('data-bball-open-foul'));
+        const participantId = btn.getAttribute('data-bball-open-foul');
+        // Individual scoring off: same "team foul (no player)" outcome the
+        // dialog's own team-foul option already produces — post it directly.
+        if (!individualScoringEnabled) {
+          const form = document.getElementById('foul-form-' + participantId);
+          if (!form) return;
+          bballSubmit(form);
+          return;
+        }
+        const dialog = document.getElementById('foul-dialog-' + participantId);
         if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
       });
     });
@@ -126,6 +152,8 @@
         setTimeout(function () { target.classList.remove('bball-highlight'); }, 1500);
       });
     }
+
+    initIndividualScoringSwitcher();
 
     const endMatchBtn = document.querySelector('[data-bball-end-match]');
     if (endMatchBtn) {
@@ -167,6 +195,41 @@
       // in case we're actually already in fullscreen.
       updateFullscreenBtn();
     }
+  }
+
+  // Individual-scoring panel: switches between Team A's and Team B's player
+  // cards. #individual-scoring is one of PATCH_TARGET_IDS above, so its
+  // *contents* (including whichever team was showing) get overwritten by
+  // every score/foul AJAX patch and always come back defaulting to Team A —
+  // this is what re-runs after every patch (see initDashboard's caller) to
+  // rebind the now-fresh buttons/panels, and it restores the previously
+  // selected team from data-active-team on the #individual-scoring element
+  // itself, which — like #bball-game-view's fullscreen state — is never
+  // replaced, only its innerHTML is, so that one attribute survives patches.
+  function initIndividualScoringSwitcher() {
+    const panel = document.getElementById('individual-scoring');
+    if (!panel) return;
+    const switchBtns = panel.querySelectorAll('[data-team-switch]');
+    const teamPanels = panel.querySelectorAll('[data-team-panel]');
+    if (!switchBtns.length) return;
+
+    function activate(teamId) {
+      switchBtns.forEach(function (btn) {
+        const active = btn.getAttribute('data-team-switch') === teamId;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      teamPanels.forEach(function (p) {
+        p.classList.toggle('is-active', p.getAttribute('data-team-panel') === teamId);
+      });
+      panel.setAttribute('data-active-team', teamId);
+    }
+
+    switchBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () { activate(btn.getAttribute('data-team-switch')); });
+    });
+
+    activate(panel.getAttribute('data-active-team'));
   }
 
   function updateFullscreenBtn() {

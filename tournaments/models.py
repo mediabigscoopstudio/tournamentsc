@@ -333,13 +333,25 @@ class Fixture(TimeStamped):
     # extra_time_seconds - elapsed_since(live_started_at) — so "add extra
     # time" correctly extends the quarter instead of draining it faster.
     quarter_length_seconds = models.PositiveIntegerField(default=600)
-    # 24-second shot clock (basketball only), independent of the quarter clock
-    # and fully organizer-controlled (start/pause/reset are explicit actions —
-    # it never auto-runs). `shot_clock_seconds_remaining` is the frozen
-    # baseline whenever it isn't running; `shot_clock_running_since` is set
-    # while it counts down, same shift-the-anchor pattern as the quarter clock.
+    # Shot clock (basketball only). It is no longer independently
+    # start/stop-able by the organizer — it mirrors the quarter clock's
+    # running/paused state exactly (see pause_clock/resume_clock/
+    # reset_quarter_clock in views.py) and auto-cycles back to the full
+    # duration the instant it hits 0, for as long as the quarter clock keeps
+    # running. `shot_clock_seconds_remaining` is the frozen "remaining in the
+    # current cycle" baseline whenever it isn't running; `shot_clock_running_since`
+    # is the anchor timestamp while it's counting down, same shift-the-anchor
+    # pattern as the quarter clock. `shot_clock_duration_seconds` is the
+    # organizer-selected cycle length (12s/24s) that both the baseline and
+    # every auto-reset use.
+    shot_clock_duration_seconds = models.PositiveSmallIntegerField(default=24)
     shot_clock_seconds_remaining = models.PositiveSmallIntegerField(default=24)
     shot_clock_running_since = models.DateTimeField(null=True, blank=True)
+    # Chosen once on the basketball pre-match setup screen (see score_fixture's
+    # 'start' action) alongside quarter_length_seconds/shot_clock_duration_seconds.
+    # Governs whether +1/+2/+3 and fouls ask for a scoring/fouling player
+    # (individual attribution) or apply directly to the team only.
+    individual_scoring_enabled = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['round_no', 'sequence', 'id']
@@ -401,14 +413,26 @@ class Fixture(TimeStamped):
         remaining = self.quarter_length_seconds + self.extra_time_seconds - elapsed
         return max(0, int(remaining))
 
+    def shot_clock_remaining_at(self, at):
+        """Shot clock seconds remaining at a given instant, auto-wrapping back
+        to the full duration every (duration + 1) seconds of running time —
+        one extra second per cycle so the display actually reaches 0 (not
+        just `duration - 1`) before resetting, matching a real shot-clock
+        buzzer-then-reset. Frozen at `shot_clock_seconds_remaining` while not
+        running (paused, or match not live)."""
+        duration = self.shot_clock_duration_seconds
+        if not self.shot_clock_running_since:
+            return self.shot_clock_seconds_remaining
+        elapsed_in_cycle = (duration - self.shot_clock_seconds_remaining) + \
+            (at - self.shot_clock_running_since).total_seconds()
+        cycle_length = duration + 1
+        return duration - int(elapsed_in_cycle) % cycle_length
+
     @property
     def shot_clock_display_seconds(self):
         """Shot clock seconds for the initial server-rendered paint — JS ticks
         it client-side from here exactly like the quarter clock."""
-        if not self.shot_clock_running_since:
-            return self.shot_clock_seconds_remaining
-        elapsed = (timezone.now() - self.shot_clock_running_since).total_seconds()
-        return max(0, int(self.shot_clock_seconds_remaining - elapsed))
+        return self.shot_clock_remaining_at(timezone.now())
 
     @property
     def period_display(self):

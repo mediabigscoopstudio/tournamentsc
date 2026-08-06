@@ -17,6 +17,7 @@ from tournaments.models import (Fixture, Highlight, ScoreEvent, Sport, Team, Tou
                                 TournamentTeamEntry)
 from tournaments.stats import player_results, player_schedule
 from tournaments.utils import format_ms, youtube_id
+from tournaments.views import _basketball_scoring_context
 
 
 # ======================================================================
@@ -274,7 +275,8 @@ def match_detail(request, slug, pk):
         Highlight.objects.filter(pk=highlight.pk).update(view_count=F('view_count') + 1)
         highlight.refresh_from_db(fields=['view_count'])
 
-    return render(request, 'public/match_detail.html', {
+    is_basketball = tournament.sport.slug == 'basketball'
+    ctx = {
         'tournament': tournament,
         'fixture': fixture,
         'participants': fixture.ordered_participants(),
@@ -286,10 +288,19 @@ def match_detail(request, slug, pk):
         # Drives the same quarter-clock markup/JS the organizer scoring page
         # uses (see template/organizer/score.html + static/js/match-clock.js)
         # — basketball only, same as that page.
-        'is_basketball': tournament.sport.slug == 'basketball',
+        'is_basketball': is_basketball,
         'win_probability': fixture.win_probability,
         'format_ms': format_ms,
-    })
+    }
+    if is_basketball and fixture.status != 'SCHEDULED':
+        # Same helper the organizer's own Individual Scoring panel uses
+        # (tournaments/views.py) — one source of truth for the per-player
+        # totals, just rendered read-only here (see
+        # template/public/_individual_scoring.html). Not shown pre-match,
+        # same as the quarter/shot clock above.
+        _, _, individual_rows_by_team = _basketball_scoring_context(fixture)
+        ctx['individual_rows_by_team'] = individual_rows_by_team
+    return render(request, 'public/match_detail.html', ctx)
 
 
 def standings(request, slug):

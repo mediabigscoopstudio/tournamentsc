@@ -5,9 +5,9 @@
 <div class="wrap">
   <a class="back" href="{{ tournament.get_absolute_url }}"><svg class="ico" style="width:16px;height:16px;transform:rotate(180deg)"><use href="#i-arrow"/></svg> {{ tournament.name }}</a>
 
-  <div class="two-col">
-    <div class="stack">
-      <div class="scoreboard {% if fixture.status == 'LIVE' %}is-live{% endif %}" data-live-fixture="{{ fixture.id }}" data-live-status="{{ fixture.status }}">
+  <div class="pm-layout">
+    <div class="pm-col-left">
+      <div class="scoreboard pm-scoreboard {% if fixture.status == 'LIVE' %}is-live{% endif %}" data-live-fixture="{{ fixture.id }}" data-live-status="{{ fixture.status }}">
         <div class="scoreboard-top">
           {% if fixture.status == 'LIVE' %}<span class="live" data-live-badge><span class="live__dot"></span> Live</span>
           {% elif fixture.status == 'COMPLETED' %}<span class="badge badge-completed">Final</span>
@@ -46,6 +46,7 @@
         {% elif participants|length == 2 %}
           {% if is_basketball and fixture.status == 'LIVE' %}
             <div class="match-clock-row">
+              <span class="bball-quarter-pill" data-period-pill>{{ fixture.period_display }}</span>
               <span class="match-clock-label">Time remaining</span>
               <span class="bball-digital-clock" data-quarter-clock
                     data-clock-status="{{ fixture.status }}"
@@ -55,6 +56,12 @@
                     data-paused="{% if fixture.clock_paused_at %}1{% else %}0{% endif %}"
                     data-paused-remaining-seconds="{{ fixture.paused_quarter_remaining_seconds|default_if_none:'' }}">10:00</span>
               <span class="badge badge-upcoming" data-clock-paused-badge {% if not fixture.clock_paused_at %}hidden{% endif %}>Paused</span>
+              <span class="match-clock-label">Short clock</span>
+              <span class="bball-shot-clock" data-shot-clock
+                    data-running="{% if fixture.shot_clock_running_since %}1{% else %}0{% endif %}"
+                    data-started-at="{{ fixture.shot_clock_running_since|date:'c' }}"
+                    data-remaining-seconds="{{ fixture.shot_clock_seconds_remaining }}"
+                    data-duration-seconds="{{ fixture.shot_clock_duration_seconds }}">{{ fixture.shot_clock_display_seconds }}</span>
             </div>
           {% endif %}
           <div class="scoreboard-main" aria-live="polite">
@@ -88,7 +95,17 @@
         {% endif %}
       </div>
 
-      <div class="watch-cta">
+      {% if is_basketball and fixture.status != 'SCHEDULED' %}
+        <div class="panel tblcard pm-indiv" id="individual-scoring"
+             data-active-team="{{ participants.0.id }}">
+          <h3>Individual scoring</h3>
+          <div id="individual-scoring-body">
+            {% include 'public/_individual_scoring.html' %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="watch-cta pm-video">
         {% if fixture.effective_youtube_url %}
           <a class="btn btn-primary btn--lg watch-cta__btn" href="{{ fixture.effective_youtube_url }}"
              target="_blank" rel="noopener">
@@ -100,7 +117,7 @@
       </div>
 
       {% if highlight %}
-        <div class="panel">
+        <div class="panel pm-highlight">
           <div class="spread">
             <h3>{{ highlight.title }}</h3>
             <span class="dim mono" style="font-size:12px">
@@ -115,27 +132,27 @@
       {% endif %}
     </div>
 
-    <aside class="stack">
-      <div class="panel">
+    <div class="pm-col-right">
+      <div class="panel pm-matchinfo">
         <h3>Match info</h3>
         <dl class="kv" style="margin-top:12px">
-          <dt>Round</dt><dd>{{ fixture.round_name }}</dd>
-          <dt>Status</dt><dd>{{ fixture.get_status_display }}</dd>
-          {% if fixture.scheduled_time %}<dt>Time</dt><dd>{{ fixture.scheduled_time|date:'M j, H:i' }}</dd>{% endif %}
-          {% if fixture.venue_detail %}<dt>Venue</dt><dd>{{ fixture.venue_detail }}</dd>{% endif %}
+          <div class="pm-stat"><dt>Round</dt><dd>{{ fixture.round_name }}</dd></div>
+          <div class="pm-stat"><dt>Status</dt><dd>{{ fixture.get_status_display }}</dd></div>
+          {% if fixture.scheduled_time %}<div class="pm-stat"><dt>Time</dt><dd>{{ fixture.scheduled_time|date:'M j, H:i' }}</dd></div>{% endif %}
+          {% if fixture.venue_detail %}<div class="pm-stat"><dt>Venue</dt><dd>{{ fixture.venue_detail }}</dd></div>{% endif %}
         </dl>
       </div>
       {% if events %}
-      <div class="panel">
+      <div class="panel pm-commentary">
         <h3>Commentary</h3>
         <ul class="feed" data-feed>{% for e in events %}<li><span class="t">{{ e.created_at|date:'H:i' }}</span><span>{{ e.description }}</span></li>{% endfor %}</ul>
       </div>
       {% endif %}
-    </aside>
+    </div>
   </div>
 </div>
 {% endblock %}
 {% block scripts %}
-  {% if is_basketball %}<script src="{% static 'js/match-clock.js' %}"></script>{% endif %}
-  <script src="{% static 'js/live-scores.js' %}"></script>
+  {% if is_basketball %}<script src="{% static 'js/match-clock.js' %}?v=1"></script>{% endif %}
+  <script src="{% static 'js/live-scores.js' %}?v=2"></script>
 {% endblock %}

@@ -5,7 +5,8 @@
 <section class="section wrap" style="max-width:720px">
   {% if is_basketball and fixture.status != 'SCHEDULED' %}
     {% with team_a=participants.0 team_b=participants.1 %}
-    <div class="bball-game-view" id="bball-game-view">
+    <div class="bball-game-view" id="bball-game-view"
+         data-individual-scoring="{% if fixture.individual_scoring_enabled %}1{% else %}0{% endif %}">
     <div class="bball-header">
       <a href="{% url 'fixtures_manage' tournament.slug %}" class="bball-back" aria-label="Back to fixtures">←</a>
       <div class="bball-team-name bball-team-name--a">{{ team_a.name }}</div>
@@ -106,18 +107,15 @@
               <div class="bball-shot-clock" data-shot-clock
                    data-running="{% if fixture.shot_clock_running_since %}1{% else %}0{% endif %}"
                    data-started-at="{{ fixture.shot_clock_running_since|date:'c' }}"
-                   data-remaining-seconds="{{ fixture.shot_clock_seconds_remaining }}">{{ fixture.shot_clock_display_seconds }}</div>
+                   data-remaining-seconds="{{ fixture.shot_clock_seconds_remaining }}"
+                   data-duration-seconds="{{ fixture.shot_clock_duration_seconds }}">{{ fixture.shot_clock_display_seconds }}</div>
               <div class="bball-clock-controls">
                 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shot_clock_reset">
                   <button class="bball-clock-icon-btn bball-clock-icon-btn--sm" type="submit" aria-label="Reset shot clock">↺</button>
                 </form>
-                {% if fixture.shot_clock_running_since %}
-                  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shot_clock_pause">
-                    <button class="bball-clock-icon-btn bball-clock-icon-btn--sm" type="submit" aria-label="Pause shot clock">⏸</button></form>
-                {% else %}
-                  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shot_clock_start">
-                    <button class="bball-clock-icon-btn bball-clock-icon-btn--sm" type="submit" aria-label="Start shot clock">▶</button></form>
-                {% endif %}
+                <button type="button" class="bball-quarter-length-btn" data-bball-open-dialog="shot-clock-duration-dialog">
+                  {{ fixture.shot_clock_duration_seconds }}s
+                </button>
               </div>
             </div>
           {% endif %}
@@ -231,12 +229,85 @@
           </form>
           <button type="button" class="btn btn-secondary btn-sm bball-dialog-cancel" style="margin-top:10px">Cancel</button>
         </dialog>
+
+        <dialog id="shot-clock-duration-dialog" class="bball-player-dialog">
+          <h4>Short clock duration</h4>
+          <div class="bball-roster-list">
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_shot_clock_duration">
+              <input type="hidden" name="seconds" value="12">
+              <button type="submit" class="bball-roster-btn">12 seconds</button>
+            </form>
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="set_shot_clock_duration">
+              <input type="hidden" name="seconds" value="24">
+              <button type="submit" class="bball-roster-btn">24 seconds</button>
+            </form>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm bball-dialog-cancel" style="margin-top:10px">Cancel</button>
+        </dialog>
       {% else %}
         <p class="dim center" style="margin-top:16px">Match ended.</p>
       {% endif %}
     </div>
     </div>
     {% endwith %}
+  {% elif is_basketball %}
+    <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
+    <div class="spread" style="margin-top:12px">
+      <h1>{{ fixture.round_name|default:'Fixture' }}</h1>
+      <span class="badge badge-upcoming">{{ fixture.get_status_display }}</span>
+    </div>
+
+    <div class="panel bball-setup-card">
+      <div class="bball-setup-header">
+        <span class="bball-setup-icon" aria-hidden="true">🏀</span>
+        <div>
+          <h3>Basketball Match Setup</h3>
+          <p>Configure the match before starting live scoring.</p>
+        </div>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="start">
+
+        <div class="bball-setup-section">
+          <label class="bball-setup-label">Match duration</label>
+          <div class="bball-setup-options">
+            <label class="bball-setup-option">
+              <input type="radio" name="quarter_minutes" value="10" checked> 10 Min</label>
+            <label class="bball-setup-option">
+              <input type="radio" name="quarter_minutes" value="12"> 12 Min</label>
+            <label class="bball-setup-option">
+              <input type="radio" name="quarter_minutes" value="24"> 24 Min</label>
+          </div>
+        </div>
+
+        <div class="bball-setup-section">
+          <label class="bball-setup-label">Shot clock duration</label>
+          <div class="bball-setup-options">
+            <label class="bball-setup-option">
+              <input type="radio" name="shot_clock_seconds" value="24" checked> 24 Sec</label>
+            <label class="bball-setup-option">
+              <input type="radio" name="shot_clock_seconds" value="12"> 12 Sec</label>
+          </div>
+        </div>
+
+        <div class="bball-setup-section">
+          <div class="bball-setup-toggle-row">
+            <div class="bball-setup-toggle-copy">
+              <div class="bball-setup-toggle-title">Individual scoring</div>
+              <p class="helptext">Track points and fouls for individual players. Off records team totals only.</p>
+            </div>
+            <label class="bball-setup-switch">
+              <input type="checkbox" name="individual_scoring" value="on" checked>
+              <span class="bball-setup-switch-track"><span class="bball-setup-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn--lg bball-setup-start">▶ Start Match</button>
+      </form>
+    </div>
   {% else %}
     <a href="{% url 'fixtures_manage' tournament.slug %}" class="dim">← All fixtures</a>
     <div class="spread" style="margin-top:12px">
@@ -255,30 +326,75 @@
   {% endif %}
 
   {% if is_basketball %}
-    <div class="panel tblcard" style="margin-top:20px" id="individual-scoring">
+    <div class="panel tblcard" style="margin-top:20px" id="individual-scoring"
+         data-active-team="{{ participants.0.id }}">
       <h3>Individual scoring</h3>
-      <div class="table-wrap" style="margin-top:12px">
-        <table class="dtable">
-          <thead>
-            <tr><th>Player</th><th>Jersey No.</th><th>1PT</th><th>2PT</th><th>3PT</th><th>Total</th><th>Fouls</th></tr>
-          </thead>
-          <tbody>
-            {% for r in individual_rows %}
-              <tr>
-                <td>{{ r.name }} <span class="dim" style="font-size:12px">({{ r.team_name }})</span></td>
-                <td class="mono">{{ r.jersey_number|default:'—' }}</td>
-                <td class="mono">{{ r.pt1 }}</td>
-                <td class="mono">{{ r.pt2 }}</td>
-                <td class="mono">{{ r.pt3 }}</td>
-                <td class="mono">{{ r.total }}</td>
-                <td class="mono">{{ r.fouls }}</td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="7" class="muted">No individual scores or fouls recorded yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      {% if fixture.individual_scoring_enabled %}
+        {% with team_a=participants.0 team_b=participants.1 %}
+        <div class="bball-indiv-switcher">
+          <button type="button" class="bball-indiv-switch-btn is-active" data-team-switch="{{ team_a.id }}"
+                  aria-pressed="true" style="--team-accent:var(--orange)">
+            <span class="bball-indiv-switch-crest">
+              {% if team_a.team.logo %}<img src="{{ team_a.team.logo.url }}" alt="">{% else %}{{ team_a.initials }}{% endif %}
+            </span>
+            <span class="bball-indiv-switch-name">{{ team_a.name }}</span>
+          </button>
+          <button type="button" class="bball-indiv-switch-btn" data-team-switch="{{ team_b.id }}"
+                  aria-pressed="false" style="--team-accent:var(--navy)">
+            <span class="bball-indiv-switch-crest">
+              {% if team_b.team.logo %}<img src="{{ team_b.team.logo.url }}" alt="">{% else %}{{ team_b.initials }}{% endif %}
+            </span>
+            <span class="bball-indiv-switch-name">{{ team_b.name }}</span>
+          </button>
+        </div>
+
+        {% for team in participants %}
+          {% with team_rows=individual_rows_by_team|lookup:team.id %}
+          <div class="bball-indiv-team-panel{% if forloop.first %} is-active{% endif %}" data-team-panel="{{ team.id }}"
+               style="--team-accent:{% if forloop.first %}var(--orange){% else %}var(--navy){% endif %}">
+            <div class="bball-indiv-summary">
+              <div class="bball-indiv-summary-name">{{ team.name }}</div>
+              <div class="bball-indiv-summary-stats">
+                <div class="bball-indiv-summary-stat"><b>{{ team_rows|length }}</b><span>Players scored</span></div>
+                <div class="bball-indiv-summary-stat"><b>{{ team.score|default:0|floatformat:0 }}</b><span>Team points</span></div>
+                <div class="bball-indiv-summary-stat"><b>{{ team.fouls|default:0 }}</b><span>Total fouls</span></div>
+              </div>
+            </div>
+
+            {% if team_rows %}
+              <div class="bball-indiv-top">
+                <span class="bball-indiv-top-badge">🏀 Top scorer</span>
+                <span class="bball-indiv-top-name">{{ team_rows.0.name }}</span>
+                <span class="bball-indiv-top-points">{{ team_rows.0.total }} Points</span>
+              </div>
+
+              <div class="bball-indiv-cards">
+                {% for r in team_rows %}
+                  <div class="bball-indiv-card">
+                    <div class="bball-indiv-card-jersey">#{{ r.jersey_number|default:'—' }}</div>
+                    <div class="bball-indiv-card-body">
+                      <div class="bball-indiv-card-name">{{ r.name }}</div>
+                      <div class="bball-indiv-card-stats">
+                        <span class="bball-indiv-points"><b>{{ r.total }}</b> Points</span>
+                        <span>1PT <b>{{ r.pt1 }}</b></span>
+                        <span>2PT <b>{{ r.pt2 }}</b></span>
+                        <span>3PT <b>{{ r.pt3 }}</b></span>
+                        <span>Fouls <b>{{ r.fouls }}</b></span>
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="bball-indiv-empty">No individual scores recorded yet.</p>
+            {% endif %}
+          </div>
+          {% endwith %}
+        {% endfor %}
+        {% endwith %}
+      {% else %}
+        <p class="dim" style="margin-top:12px">Individual scoring disabled for this match.</p>
+      {% endif %}
     </div>
   {% endif %}
 
@@ -349,4 +465,4 @@
   </div>
 </section>
 {% endblock %}
-{% block scripts %}{% if is_basketball %}<script src="{% static 'js/match-clock.js' %}?v=3"></script><script src="{% static 'js/basketball-score.js' %}?v=3"></script>{% endif %}{% endblock %}
+{% block scripts %}{% if is_basketball %}<script src="{% static 'js/match-clock.js' %}?v=4"></script><script src="{% static 'js/basketball-score.js' %}?v=5"></script>{% endif %}{% endblock %}

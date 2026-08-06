@@ -547,7 +547,9 @@ a.fixture-row:hover, a.frow:hover{ text-decoration:none; box-shadow:var(--shadow
 .scoreboard-main{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .competitor{ display:flex; flex-direction:column; align-items:center; gap:10px; width:120px; text-align:center; }
 .competitor-crest{ width:56px; height:56px; border-radius:15px; display:grid; place-items:center; background:var(--navy); color:#fff; font-family:var(--font-display); font-weight:800; font-size:18px; }
-.competitor-name{ font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--navy); }
+.competitor-name{ font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--navy);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  text-overflow:ellipsis; word-break:break-word; }
 .competitor-name.winner{ color:var(--green); }
 .score-center{ font-family:var(--font-score); font-weight:700; font-size:52px; line-height:1; color:var(--navy); display:flex; align-items:center; gap:14px; }
 .score-divider{ color:var(--muted); font-weight:600; font-size:22px; }
@@ -575,6 +577,118 @@ a.fixture-row:hover, a.frow:hover{ text-decoration:none; box-shadow:var(--shadow
 .watch-cta{ display:flex; align-items:center; justify-content:center; padding:36px 16px;
   border-radius:var(--r-lg); border:1px solid var(--line); background:var(--bg-2); }
 .watch-cta__btn{ width:100%; max-width:320px; }
+
+/* ======================================================================
+   Public Match View responsive layout (template/public/match_detail.html
+   only — every selector below is either a class unique to this template or
+   scoped under one via a descendant selector, so none of it can touch the
+   organizer scoring page, .kv on organizer_status.html, .feed on the
+   organizer score page, or any other .panel/.two-col page on the site).
+
+   .pm-layout is mobile-first: the un-prefixed rules ARE the <768px mobile
+   order (Scoreboard, Match info, Individual scoring, Commentary, Video),
+   then each breakpoint only overrides what actually changes.
+   ====================================================================== */
+.pm-layout{ display:flex; flex-direction:column; gap:20px; }
+/* Unwrapped below 1024px: .pm-col-left/.pm-col-right generate no box of
+   their own, so their children become direct flex items of .pm-layout and
+   can freely interleave via `order` regardless of which "column" they
+   started in. Re-wrapped into two real columns at desktop, below. */
+.pm-col-left, .pm-col-right{ display:contents; }
+
+.pm-scoreboard{ order:1; }
+.pm-matchinfo{ order:2; }
+.pm-indiv{ order:3; }
+.pm-commentary{ order:4; }
+.pm-video{ order:5; }
+.pm-highlight{ order:6; }
+
+/* Tablet (768–1023px): still one full-width column, but Match info +
+   Commentary move ahead of Individual scoring — see the task's own
+   "TABLET LAYOUT" order vs "MOBILE LAYOUT" order, they're not the same. */
+@media (min-width:768px){
+  .pm-matchinfo{ order:2; }
+  .pm-commentary{ order:3; }
+  .pm-indiv{ order:4; }
+  .pm-video{ order:5; }
+}
+
+/* Desktop (1024px+): real two-column grid, 70/30. Each column is then just
+   a plain flex stack of its own direct children in DOM order (scoreboard →
+   indiv → video → highlight on the left; matchinfo → commentary on the
+   right) — no `order` needed here, and a missing item (e.g. no Individual
+   scoring on a non-basketball fixture, or no Commentary with zero events)
+   simply isn't there, never a blank gap the way an unfilled named
+   grid-template-area would leave behind. */
+@media (min-width:1024px){
+  .pm-layout{ display:grid; grid-template-columns:7fr 3fr; gap:24px; align-items:start; }
+  .pm-col-left, .pm-col-right{ display:flex; flex-direction:column; gap:20px; }
+}
+
+/* Live scoreboard: on mobile only, the team/score block comes before the
+   quarter/clock/shot-clock row (see the task's "Suggested mobile
+   structure") — tablet and desktop keep the clock above the score, which
+   is already how the DOM/CSS renders without any of this. */
+@media (max-width:767.98px){
+  .pm-scoreboard{ display:flex; flex-direction:column; }
+  .scoreboard-top{ order:1; }
+  .scoreboard-main{ order:2; }
+  .match-clock-row{ order:3; }
+  [data-prob-wrap]{ order:4; }
+
+  .scoreboard{ padding:18px; }
+  .scoreboard-main{ flex-direction:column; gap:14px; }
+  .competitor{ width:auto; max-width:100%; }
+  .competitor-crest{ width:48px; height:48px; font-size:16px; }
+  .score-center{ font-size:clamp(40px, 13vw, 52px); }
+  .score-divider{ display:none; }
+  .match-clock-row{ gap:8px 14px; }
+}
+@media (max-width:420px){
+  /* The clock row packs 3 label+value pairs plus a conditional "Paused"
+     badge — past a certain point a wrapped 2-column arrangement starts
+     looking accidental rather than deliberate, so the narrowest phones get
+     a clean single column instead. */
+  .match-clock-row{ flex-direction:column; }
+}
+
+/* Individual scoring: full-width switcher + guaranteed 3-equal-column
+   summary on mobile — a deliberately different mobile treatment from the
+   organizer scoring page's own (half-width) switcher, so it's scoped under
+   .pm-indiv rather than changing the shared .bball-indiv-* rules those two
+   pages both draw on for their (identical) colors/cards/typography. */
+@media (max-width:767.98px){
+  .pm-indiv .bball-indiv-switcher{ flex-direction:column; }
+  .pm-indiv .bball-indiv-switch-btn{ width:100%; justify-content:center; min-height:44px; }
+  .pm-indiv .bball-indiv-summary-stats{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .pm-indiv .bball-indiv-summary-stat{ min-width:0; }
+}
+
+/* Match info: label-over-value "stat card" tiles instead of a dt/dd list —
+   scoped under .pm-matchinfo so organizer_status.html's own .kv is
+   untouched. Two per row keeps Round/Status/Time/Venue scannable without
+   ever needing more than 2 columns' worth of width. */
+.pm-matchinfo .kv{ display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+.pm-matchinfo .pm-stat{ background:var(--bg-2); border-radius:var(--r-md); padding:10px 12px; }
+.pm-matchinfo .pm-stat dt{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--muted); }
+.pm-matchinfo .pm-stat dd{ margin:3px 0 0; font-weight:700; font-size:14px; color:var(--navy);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Commentary: bounded height + internal scroll on mobile/tablet so a long
+   feed can't push the Video section far down the page — scoped under
+   .pm-commentary so the organizer score page's own .feed (no such cap) is
+   untouched. */
+@media (max-width:1023.98px){
+  .pm-commentary .feed{ max-height:340px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .pm-commentary .feed li{ padding:12px 2px; }
+}
+
+/* Video CTA: less dead vertical space once it's competing with everything
+   else for a phone's screen height. */
+@media (max-width:767.98px){
+  .watch-cta{ padding:22px 16px; }
+}
 
 /* forms */
 .field{ margin-bottom:20px; }
@@ -672,10 +786,11 @@ a.authcard:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-c
   .bento{ grid-template-columns:1fr; grid-auto-rows:minmax(168px,auto); } .bx--big{ grid-column:span 1; grid-row:auto; } .bx{ grid-row:auto; }
   .hl-grid{ grid-template-columns:1fr; }
   .foot__grid{ grid-template-columns:1fr; } .foot__brand{ grid-column:span 1; }
-  .hcard__sc{ font-size:40px; } .score-center{ font-size:40px; }
+  .hcard__sc{ font-size:40px; }
   .sports-grid{ grid-template-columns:repeat(2,1fr); }
-  .competitor{ width:88px; } .competitor-crest{ width:46px; height:46px; font-size:15px; }
-  .scoreboard{ padding:18px; }
+  /* .competitor / .scoreboard / .score-center mobile sizing lives in the
+     Public Match View responsive section below, alongside the rest of that
+     page's breakpoint rules. */
   /* Tables get their own scroller rather than blowing out the page width. */
   .table-wrap{ -webkit-overflow-scrolling:touch; }
   th,td{ padding:10px 12px; font-size:13px; }
@@ -784,6 +899,97 @@ a.authcard:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-c
   font-size:11px; padding:4px 10px; border-radius:var(--r-pill); cursor:pointer; font-family:var(--font-body); }
 .bball-quarter-length-btn:hover{ border-color:var(--navy); color:var(--navy); }
 
+/* Basketball pre-match setup screen (organizer/score.html, SCHEDULED state) */
+.bball-setup-card{ margin:20px auto 0; max-width:440px; border-radius:var(--r-xl); box-shadow:var(--shadow);
+  padding:30px 28px; }
+.bball-setup-header{ display:flex; align-items:center; gap:14px; margin-bottom:26px; }
+.bball-setup-icon{ flex:none; width:48px; height:48px; border-radius:var(--r-md); background:var(--bg-2);
+  font-size:24px; display:inline-flex; align-items:center; justify-content:center; }
+.bball-setup-header h3{ margin:0; font-size:18px; }
+.bball-setup-header p{ margin:3px 0 0; font-size:13px; color:var(--muted); }
+.bball-setup-section{ margin-bottom:24px; }
+.bball-setup-section:last-of-type{ margin-bottom:0; }
+.bball-setup-label{ display:block; font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--navy); margin-bottom:10px; }
+.bball-setup-options{ display:flex; gap:10px; }
+.bball-setup-option{ position:relative; flex:1; display:flex; align-items:center; justify-content:center;
+  padding:13px 10px; border-radius:var(--r-md); border:1.6px solid var(--line-2); background:#fff;
+  color:var(--ink-2); font-weight:700; font-size:14px; font-family:var(--font-body); text-align:center;
+  cursor:pointer; transition:all .18s var(--ease); }
+.bball-setup-option:hover{ border-color:var(--orange); color:var(--navy); }
+.bball-setup-option input{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden;
+  clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.bball-setup-option:has(input:checked){ background:var(--orange); border-color:var(--orange); color:#fff;
+  box-shadow:0 8px 18px -10px rgba(242,106,27,.65); }
+.bball-setup-option:has(input:focus-visible){ box-shadow:0 0 0 3px rgba(242,106,27,.25); }
+.bball-setup-toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.bball-setup-toggle-copy{ min-width:0; }
+.bball-setup-toggle-title{ font-weight:700; font-size:14.5px; color:var(--navy); }
+.bball-setup-toggle-row .helptext{ margin-top:3px; }
+.bball-setup-switch{ position:relative; flex:none; display:inline-flex; cursor:pointer; }
+.bball-setup-switch input{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden;
+  clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.bball-setup-switch-track{ width:46px; height:27px; border-radius:var(--r-pill); background:var(--line-2);
+  padding:3px; display:inline-flex; align-items:center; transition:background .2s var(--ease); }
+.bball-setup-switch-thumb{ width:21px; height:21px; border-radius:50%; background:#fff; box-shadow:var(--shadow-sm);
+  transition:transform .2s var(--ease); }
+.bball-setup-switch:has(input:checked) .bball-setup-switch-track{ background:var(--orange); }
+.bball-setup-switch:has(input:checked) .bball-setup-switch-thumb{ transform:translateX(19px); }
+.bball-setup-switch:has(input:focus-visible) .bball-setup-switch-track{ box-shadow:0 0 0 3px rgba(242,106,27,.25); }
+.bball-setup-start{ width:100%; margin-top:6px; }
+
+/* Basketball individual-scoring panel (organizer/score.html #individual-scoring) —
+   team switcher + per-team stat cards. `--team-accent` is set inline per team
+   (orange for the first participant, navy for the second) so one small rule
+   set drives both sides' highlighted/active look. */
+.bball-indiv-switcher{ display:flex; justify-content:center; gap:14px; margin-top:16px; flex-wrap:wrap; }
+.bball-indiv-switch-btn{ display:flex; align-items:center; gap:10px; padding:10px 18px 10px 10px;
+  border-radius:var(--r-pill); border:1.6px solid var(--line-2); background:#fff; cursor:pointer;
+  font-family:var(--font-body); transition:all .2s var(--ease); }
+.bball-indiv-switch-btn:hover{ border-color:var(--team-accent); }
+.bball-indiv-switch-btn.is-active{ border-color:var(--team-accent);
+  background:color-mix(in srgb, var(--team-accent) 12%, #fff);
+  box-shadow:0 6px 16px -10px var(--team-accent); }
+.bball-indiv-switch-crest{ flex:none; width:36px; height:36px; border-radius:50%; background:var(--team-accent);
+  color:#fff; display:inline-flex; align-items:center; justify-content:center; font-family:var(--font-display);
+  font-weight:800; font-size:13px; overflow:hidden; }
+.bball-indiv-switch-crest img{ width:100%; height:100%; object-fit:cover; }
+.bball-indiv-switch-name{ font-weight:700; font-size:14px; color:var(--navy); }
+.bball-indiv-team-panel{ display:none; margin-top:20px; }
+.bball-indiv-team-panel.is-active{ display:block; animation:bballIndivFadeIn .28s var(--ease); }
+@keyframes bballIndivFadeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+.bball-indiv-summary{ border-radius:var(--r-lg); background:var(--bg-2); padding:16px 18px;
+  border-left:4px solid var(--team-accent); }
+.bball-indiv-summary-name{ font-family:var(--font-display); font-weight:800; font-size:15px; color:var(--navy); }
+.bball-indiv-summary-stats{ display:flex; gap:22px; margin-top:10px; flex-wrap:wrap; }
+.bball-indiv-summary-stat{ display:flex; flex-direction:column; }
+.bball-indiv-summary-stat b{ font-family:var(--font-score); font-size:20px; color:var(--navy); }
+.bball-indiv-summary-stat span{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--muted); margin-top:2px; }
+.bball-indiv-top{ display:flex; align-items:center; gap:12px; margin-top:14px; padding:12px 16px;
+  border-radius:var(--r-md); background:color-mix(in srgb, var(--gold) 14%, #fff);
+  border:1px solid color-mix(in srgb, var(--gold) 35%, #fff); }
+.bball-indiv-top-badge{ flex:none; font-weight:800; font-size:12px; color:#9a6a06; background:#fff;
+  border-radius:var(--r-pill); padding:5px 10px; white-space:nowrap; }
+.bball-indiv-top-name{ font-weight:700; font-size:14px; color:var(--navy); }
+.bball-indiv-top-points{ margin-left:auto; font-family:var(--font-score); font-weight:700; font-size:15px;
+  color:#9a6a06; white-space:nowrap; }
+.bball-indiv-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:12px; margin-top:14px; }
+.bball-indiv-card{ display:flex; gap:12px; padding:14px 16px; border-radius:var(--r-lg); background:#fff;
+  border:1px solid var(--line); box-shadow:var(--shadow-sm); transition:transform .18s var(--ease), box-shadow .18s var(--ease); }
+.bball-indiv-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow); }
+.bball-indiv-card-jersey{ flex:none; width:38px; height:38px; border-radius:50%; background:var(--bg-2);
+  color:var(--navy); font-family:var(--font-score); font-weight:700; font-size:13px; display:inline-flex;
+  align-items:center; justify-content:center; }
+.bball-indiv-card-body{ min-width:0; flex:1; }
+.bball-indiv-card-name{ font-weight:700; font-size:14px; color:var(--navy); overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
+.bball-indiv-card-stats{ display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; font-size:12px; color:var(--muted); }
+.bball-indiv-card-stats b{ color:var(--ink); font-family:var(--font-score); }
+.bball-indiv-card-stats .bball-indiv-points b{ color:var(--team-accent); font-size:14px; }
+.bball-indiv-empty{ text-align:center; padding:28px 12px; color:var(--muted); font-size:14px; margin-top:14px;
+  border:1.5px dashed var(--line-2); border-radius:var(--r-lg); }
+
 .bball-buttons-row{ display:flex; align-items:center; justify-content:center; gap:28px; margin-top:28px; flex-wrap:wrap; }
 .bball-team-buttons{ display:flex; gap:14px; }
 .bball-point-btn{ width:64px; height:64px; border-radius:50%; border:none; color:#fff; font-family:var(--font-display);
@@ -821,6 +1027,19 @@ a.authcard:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-c
   .bball-clock-icon-btn--sm{ width:20px; height:20px; font-size:10px; }
   .bball-quarter-length-btn{ font-size:10px; padding:3px 8px; }
   .bball-score-adjust{ width:18px; height:18px; font-size:11px; top:-2px; right:-6px; }
+  .bball-setup-card{ padding:22px 18px; margin-top:14px; }
+  .bball-setup-header{ gap:10px; margin-bottom:20px; }
+  .bball-setup-icon{ width:40px; height:40px; font-size:20px; }
+  .bball-setup-options{ flex-wrap:wrap; }
+  .bball-setup-option{ flex:1 1 calc(50% - 5px); min-width:90px; }
+  .bball-indiv-switcher{ gap:8px; }
+  .bball-indiv-switch-btn{ flex:1 1 calc(50% - 4px); padding:8px 12px 8px 8px; }
+  .bball-indiv-switch-crest{ width:30px; height:30px; font-size:11px; }
+  .bball-indiv-switch-name{ font-size:12.5px; }
+  .bball-indiv-summary-stats{ gap:14px; }
+  .bball-indiv-cards{ grid-template-columns:1fr; }
+  .bball-indiv-top{ flex-wrap:wrap; }
+  .bball-indiv-top-points{ margin-left:0; }
 }
 
 /* Fullscreen game view on a landscape phone: short viewport height, so the

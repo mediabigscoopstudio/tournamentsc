@@ -1,0 +1,67 @@
+{% load formtags %}
+{% if fixture.individual_scoring_enabled %}
+  {% with team_a=participants.0 team_b=participants.1 %}
+  <div class="bball-indiv-switcher">
+    <button type="button" class="bball-indiv-switch-btn is-active" data-team-switch="{{ team_a.id }}"
+            aria-pressed="true" style="--team-accent:var(--orange)">
+      <span class="bball-indiv-switch-crest">
+        {% if team_a.team.logo %}<img src="{{ team_a.team.logo.url }}" alt="">{% else %}{{ team_a.initials }}{% endif %}
+      </span>
+      <span class="bball-indiv-switch-name">{{ team_a.name }}</span>
+    </button>
+    <button type="button" class="bball-indiv-switch-btn" data-team-switch="{{ team_b.id }}"
+            aria-pressed="false" style="--team-accent:var(--navy)">
+      <span class="bball-indiv-switch-crest">
+        {% if team_b.team.logo %}<img src="{{ team_b.team.logo.url }}" alt="">{% else %}{{ team_b.initials }}{% endif %}
+      </span>
+      <span class="bball-indiv-switch-name">{{ team_b.name }}</span>
+    </button>
+  </div>
+
+  {% for team in participants %}
+    {% with team_rows=individual_rows_by_team|lookup:team.id %}
+    <div class="bball-indiv-team-panel{% if forloop.first %} is-active{% endif %}" data-team-panel="{{ team.id }}"
+         style="--team-accent:{% if forloop.first %}var(--orange){% else %}var(--navy){% endif %}">
+      <div class="bball-indiv-summary">
+        <div class="bball-indiv-summary-name">{{ team.name }}</div>
+        <div class="bball-indiv-summary-stats">
+          <div class="bball-indiv-summary-stat"><b>{{ team_rows|length }}</b><span>Players scored</span></div>
+          <div class="bball-indiv-summary-stat"><b>{{ team.score|default:0|floatformat:0 }}</b><span>Team points</span></div>
+          <div class="bball-indiv-summary-stat"><b>{{ team.fouls|default:0 }}</b><span>Total fouls</span></div>
+        </div>
+      </div>
+
+      {% if team_rows %}
+        <div class="bball-indiv-top">
+          <span class="bball-indiv-top-badge">🏀 Top scorer</span>
+          <span class="bball-indiv-top-name">{{ team_rows.0.name }}</span>
+          <span class="bball-indiv-top-points">{{ team_rows.0.total }} Points</span>
+        </div>
+
+        <div class="bball-indiv-cards">
+          {% for r in team_rows %}
+            <div class="bball-indiv-card">
+              <div class="bball-indiv-card-jersey">#{{ r.jersey_number|default:'—' }}</div>
+              <div class="bball-indiv-card-body">
+                <div class="bball-indiv-card-name">{{ r.name }}</div>
+                <div class="bball-indiv-card-stats">
+                  <span class="bball-indiv-points"><b>{{ r.total }}</b> Points</span>
+                  <span>1PT <b>{{ r.pt1 }}</b></span>
+                  <span>2PT <b>{{ r.pt2 }}</b></span>
+                  <span>3PT <b>{{ r.pt3 }}</b></span>
+                  <span>Fouls <b>{{ r.fouls }}</b></span>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="bball-indiv-empty">No individual scores recorded yet.</p>
+      {% endif %}
+    </div>
+    {% endwith %}
+  {% endfor %}
+  {% endwith %}
+{% else %}
+  <p class="dim" style="margin-top:12px">Individual scoring was disabled for this match.</p>
+{% endif %}

@@ -4,6 +4,7 @@ from django.db import transaction
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -589,7 +590,6 @@ def fixture_schedule(request, slug, fixture_id):
 # Live scoring
 # ======================================================================
 _BASKETBALL_POINT_VALUES = {'1', '2', '3'}
-_SHOT_CLOCK_DEFAULT_SECONDS = 24
 
 
 def _basketball_scoring_context(fixture):
@@ -611,6 +611,7 @@ def _basketball_scoring_context(fixture):
         return totals.setdefault(mid, {
             'name': snap.get('player_name', ''), 'jersey_number': snap.get('jersey_number', ''),
             'team_name': participant.name if participant else '',
+            'team_participant_id': participant.id if participant else None,
             'pt1': 0, 'pt2': 0, 'pt3': 0, 'total': 0, 'fouls': 0,
         })
 
@@ -633,7 +634,13 @@ def _basketball_scoring_context(fixture):
         row['fouls'] += 1
 
     individual_rows = sorted(totals.values(), key=lambda r: (-r['total'], -r['fouls'], r['name'].lower()))
-    return player_choices, individual_rows
+    # Same rows, split per team-side — the redesigned individual-scoring panel
+    # (score.html) shows one team's players at a time and needs its own list
+    # + count per participant without re-deriving anything from the events.
+    individual_rows_by_team = {}
+    for row in individual_rows:
+        individual_rows_by_team.setdefault(row['team_participant_id'], []).append(row)
+    return player_choices, individual_rows, individual_rows_by_team
 
 
 @approved_organizer_required
@@ -653,12 +660,33 @@ def score_fixture(request, slug, fixture_id):
                 fixture.live_started_at = now
                 update_fields.append('live_started_at')
                 if is_basketball:
-                    # The quarter clock starts paused (frozen at the full
-                    # quarter length) until the organizer explicitly taps
-                    # Play — it should never auto-tick just because the
-                    # match went LIVE.
+                    # Settings chosen on the pre-match setup screen (see the
+                    # 'elif is_basketball' branch of score.html, only shown
+                    # while SCHEDULED) — validated against the options that
+                    # screen actually offers, falling back to the model
+                    # defaults for any stray/tampered value.
+                    quarter_minutes_raw = request.POST.get('quarter_minutes')
+                    quarter_minutes = int(quarter_minutes_raw) if quarter_minutes_raw in ('10', '12', '24') else 10
+                    fixture.quarter_length_seconds = quarter_minutes * 60
+                    update_fields.append('quarter_length_seconds')
+
+                    shot_seconds_raw = request.POST.get('shot_clock_seconds')
+                    shot_seconds = int(shot_seconds_raw) if shot_seconds_raw in ('12', '24') else 24
+                    fixture.shot_clock_duration_seconds = shot_seconds
+                    update_fields.append('shot_clock_duration_seconds')
+
+                    fixture.individual_scoring_enabled = bool(request.POST.get('individual_scoring'))
+                    update_fields.append('individual_scoring_enabled')
+
+                    # The quarter clock (and the shot clock, which mirrors it)
+                    # starts paused (frozen at the full quarter/shot length)
+                    # until the organizer explicitly taps Play — it should
+                    # never auto-tick just because the match went LIVE.
                     fixture.clock_paused_at = now
                     update_fields.append('clock_paused_at')
+                    fixture.shot_clock_seconds_remaining = fixture.shot_clock_duration_seconds
+                    fixture.shot_clock_running_since = None
+                    update_fields += ['shot_clock_seconds_remaining', 'shot_clock_running_since']
             fixture.save(update_fields=update_fields)
             sync_tournament_status(t)
             messages.info(request, 'Match marked LIVE.')
@@ -724,7 +752,7 @@ def score_fixture(request, slug, fixture_id):
                 fixture.live_started_at = now
                 fixture.extra_time_seconds = 0
                 fixture.clock_paused_at = now
-                fixture.shot_clock_seconds_remaining = _SHOT_CLOCK_DEFAULT_SECONDS
+                fixture.shot_clock_seconds_remaining = fixture.shot_clock_duration_seconds
                 fixture.shot_clock_running_since = None
                 update_fields += ['live_started_at', 'extra_time_seconds', 'clock_paused_at',
                                   'shot_clock_seconds_remaining', 'shot_clock_running_since']
@@ -786,37 +814,41 @@ def score_fixture(request, slug, fixture_id):
                 messages.error(request, 'Enter a quarter length between 1 and 60 minutes.')
             return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
 
-        if action == 'shot_clock_start':
-            if not is_basketball:
-                messages.error(request, 'The shot clock is only available for basketball matches.')
-                return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
-            if (fixture.status == 'LIVE' and not fixture.shot_clock_running_since
-                    and fixture.shot_clock_seconds_remaining > 0):
-                fixture.shot_clock_running_since = timezone.now()
-                fixture.save(update_fields=['shot_clock_running_since', 'updated_at'])
-            return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
-
-        if action == 'shot_clock_pause':
-            if not is_basketball:
-                messages.error(request, 'The shot clock is only available for basketball matches.')
-                return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
-            if fixture.shot_clock_running_since:
-                elapsed = (timezone.now() - fixture.shot_clock_running_since).total_seconds()
-                fixture.shot_clock_seconds_remaining = max(
-                    0, int(fixture.shot_clock_seconds_remaining - elapsed))
-                fixture.shot_clock_running_since = None
-                fixture.save(update_fields=['shot_clock_seconds_remaining', 'shot_clock_running_since',
-                                            'updated_at'])
-            return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
-
         if action == 'shot_clock_reset':
+            # The shot clock is no longer independently started/paused by the
+            # organizer (it auto-syncs to the quarter clock — see pause_clock/
+            # resume_clock/reset_quarter_clock below). This is a manual
+            # override to force the current cycle back to the full duration
+            # without touching the quarter clock, e.g. after a possession
+            # change — it keeps running if the quarter clock is running.
             if not is_basketball:
                 messages.error(request, 'The shot clock is only available for basketball matches.')
                 return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
-            fixture.shot_clock_seconds_remaining = _SHOT_CLOCK_DEFAULT_SECONDS
-            fixture.shot_clock_running_since = None
+            fixture.shot_clock_seconds_remaining = fixture.shot_clock_duration_seconds
+            fixture.shot_clock_running_since = (
+                timezone.now() if fixture.status == 'LIVE' and not fixture.clock_paused_at else None)
             fixture.save(update_fields=['shot_clock_seconds_remaining', 'shot_clock_running_since',
                                         'updated_at'])
+            return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
+
+        if action == 'set_shot_clock_duration':
+            if not is_basketball:
+                messages.error(request, 'The shot clock is only available for basketball matches.')
+                return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
+            raw = (request.POST.get('seconds') or '').strip()
+            seconds = int(raw) if raw.isdigit() and 1 <= int(raw) <= 60 else 0
+            if seconds:
+                # Changing the limit immediately resets the current cycle to
+                # the new duration, and every future auto-reset uses it too.
+                fixture.shot_clock_duration_seconds = seconds
+                fixture.shot_clock_seconds_remaining = seconds
+                fixture.shot_clock_running_since = (
+                    timezone.now() if fixture.status == 'LIVE' and not fixture.clock_paused_at else None)
+                fixture.save(update_fields=['shot_clock_duration_seconds', 'shot_clock_seconds_remaining',
+                                            'shot_clock_running_since', 'updated_at'])
+                messages.success(request, f'Shot clock set to {seconds}s.')
+            else:
+                messages.error(request, 'Enter a shot clock duration between 1 and 60 seconds.')
             return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
 
         if action == 'pause_clock':
@@ -824,8 +856,16 @@ def score_fixture(request, slug, fixture_id):
                 messages.error(request, 'The match clock is only available for basketball matches.')
                 return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
             if fixture.status == 'LIVE' and fixture.live_started_at and not fixture.clock_paused_at:
-                fixture.clock_paused_at = timezone.now()
-                fixture.save(update_fields=['clock_paused_at', 'updated_at'])
+                now = timezone.now()
+                fixture.clock_paused_at = now
+                update_fields = ['clock_paused_at', 'updated_at']
+                # Shot clock auto-syncs to the match clock: pausing the match
+                # clock freezes the shot clock's current cycle position too.
+                if fixture.shot_clock_running_since:
+                    fixture.shot_clock_seconds_remaining = fixture.shot_clock_remaining_at(now)
+                    fixture.shot_clock_running_since = None
+                    update_fields += ['shot_clock_seconds_remaining', 'shot_clock_running_since']
+                fixture.save(update_fields=update_fields)
                 messages.info(request, 'Match clock paused.')
             return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
 
@@ -834,9 +874,14 @@ def score_fixture(request, slug, fixture_id):
                 messages.error(request, 'The match clock is only available for basketball matches.')
                 return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
             if fixture.clock_paused_at and fixture.live_started_at:
-                fixture.live_started_at += timezone.now() - fixture.clock_paused_at
+                now = timezone.now()
+                fixture.live_started_at += now - fixture.clock_paused_at
                 fixture.clock_paused_at = None
-                fixture.save(update_fields=['live_started_at', 'clock_paused_at', 'updated_at'])
+                # Shot clock auto-syncs to the match clock: resuming picks the
+                # shot clock back up from wherever it was frozen.
+                fixture.shot_clock_running_since = now
+                fixture.save(update_fields=['live_started_at', 'clock_paused_at',
+                                            'shot_clock_running_since', 'updated_at'])
                 messages.info(request, 'Match clock resumed.')
             return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
 
@@ -847,12 +892,17 @@ def score_fixture(request, slug, fixture_id):
             if fixture.status == 'LIVE':
                 # Resets the clock to the full quarter length, paused — the
                 # organizer taps Play to actually start it counting down,
-                # same as a fresh match start or a new quarter.
+                # same as a fresh match start or a new quarter. The shot
+                # clock auto-syncs: it resets to its full duration, paused,
+                # right alongside the quarter clock.
                 now = timezone.now()
                 fixture.live_started_at = now
                 fixture.extra_time_seconds = 0
                 fixture.clock_paused_at = now
+                fixture.shot_clock_seconds_remaining = fixture.shot_clock_duration_seconds
+                fixture.shot_clock_running_since = None
                 fixture.save(update_fields=['live_started_at', 'extra_time_seconds', 'clock_paused_at',
+                                            'shot_clock_seconds_remaining', 'shot_clock_running_since',
                                             'updated_at'])
                 messages.success(request, 'Quarter timer reset.')
             return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
@@ -878,31 +928,45 @@ def score_fixture(request, slug, fixture_id):
                 messages.error(request, 'Start the match before recording points.')
                 return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
             points_raw = request.POST.get('points')
-            membership_id = request.POST.get('membership_id')
             if points_raw not in _BASKETBALL_POINT_VALUES:
                 messages.error(request, 'Choose +1, +2, or +3.')
                 return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
-            if not membership_id:
-                messages.error(request, 'Select the scoring player before recording a point.')
-                return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
             participant = get_object_or_404(FixtureParticipant, id=request.POST.get('participant_id'),
                                             fixture=fixture)
-            # Scoped to `participant`'s own team — a player from the other side
-            # simply cannot resolve here, whatever the client sent.
-            membership = get_object_or_404(TeamMembership, id=membership_id, team_id=participant.team_id)
             points = int(points_raw)
-            with transaction.atomic():
-                participant.score = (participant.score or 0) + points
-                participant.save(update_fields=['score'])
-                ScoreEvent.objects.create(
-                    fixture=fixture, participant=participant, event_type='score',
-                    description=f'{participant.name} +{points} — {membership.name} '
-                                f'(#{membership.jersey_number or "-"})',
-                    score_snapshot={'membership_id': membership.id, 'player_name': membership.name,
-                                    'jersey_number': membership.jersey_number, 'points': points,
-                                    'team_participant_id': participant.id},
-                    created_by=request.user)
-            messages.success(request, f'+{points} — {membership.name} (#{membership.jersey_number or "-"}).')
+            if fixture.individual_scoring_enabled:
+                membership_id = request.POST.get('membership_id')
+                if not membership_id:
+                    messages.error(request, 'Select the scoring player before recording a point.')
+                    return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
+                # Scoped to `participant`'s own team — a player from the other
+                # side simply cannot resolve here, whatever the client sent.
+                membership = get_object_or_404(TeamMembership, id=membership_id, team_id=participant.team_id)
+                with transaction.atomic():
+                    participant.score = (participant.score or 0) + points
+                    participant.save(update_fields=['score'])
+                    ScoreEvent.objects.create(
+                        fixture=fixture, participant=participant, event_type='score',
+                        description=f'{participant.name} +{points} — {membership.name} '
+                                    f'(#{membership.jersey_number or "-"})',
+                        score_snapshot={'membership_id': membership.id, 'player_name': membership.name,
+                                        'jersey_number': membership.jersey_number, 'points': points,
+                                        'team_participant_id': participant.id},
+                        created_by=request.user)
+                messages.success(request, f'+{points} — {membership.name} (#{membership.jersey_number or "-"}).')
+            else:
+                # Individual scoring is off for this match: apply straight to
+                # the team, no player attribution, no roster lookup.
+                with transaction.atomic():
+                    participant.score = (participant.score or 0) + points
+                    participant.save(update_fields=['score'])
+                    ScoreEvent.objects.create(
+                        fixture=fixture, participant=participant, event_type='score',
+                        description=f'{participant.name} +{points}',
+                        score_snapshot={'membership_id': None, 'player_name': '', 'jersey_number': '',
+                                        'points': points, 'team_participant_id': participant.id},
+                        created_by=request.user)
+                messages.success(request, f'{participant.name} +{points}.')
             return redirect('score_fixture', slug=slug, fixture_id=fixture_id)
 
         if action == 'undo_last_score':
@@ -959,9 +1023,10 @@ def score_fixture(request, slug, fixture_id):
         'format_ms': format_ms,
     }
     if is_basketball:
-        player_choices, individual_rows = _basketball_scoring_context(fixture)
+        player_choices, individual_rows, individual_rows_by_team = _basketball_scoring_context(fixture)
         ctx['player_choices'] = player_choices
         ctx['individual_rows'] = individual_rows
+        ctx['individual_rows_by_team'] = individual_rows_by_team
         ctx['can_undo_score'] = fixture.events.filter(event_type='score').exists()
     return render(request, 'organizer/score.html', ctx)
 
@@ -1071,6 +1136,7 @@ def fixture_live_json(request, fixture_id):
     if t.status == 'DRAFT' or t.is_removed:
         raise PermissionDenied()
 
+    participants = list(fixture.ordered_participants())
     parts = [{
         'id': p.id, 'name': p.name, 'initials': p.initials,
         'score': float(p.score) if p.score is not None else None,
@@ -1080,20 +1146,41 @@ def fixture_live_json(request, fixture_id):
         'bib': p.bib or None,
         'pace': p.pace_display or None,
         'kills': p.kills,
-    } for p in fixture.ordered_participants()]
+    } for p in participants]
+
+    individual_scoring_html = None
+    if t.sport.slug == 'basketball':
+        # Same read-only partial the public match page renders on first load
+        # (template/public/_individual_scoring.html), fed by the exact same
+        # _basketball_scoring_context() the organizer's own Individual
+        # Scoring panel uses — so a poll refresh can never show numbers that
+        # disagree with the organizer page, and there's nothing here
+        # re-deriving player totals a second way.
+        _, _, individual_rows_by_team = _basketball_scoring_context(fixture)
+        individual_scoring_html = render_to_string('public/_individual_scoring.html', {
+            'fixture': fixture, 'participants': participants,
+            'individual_rows_by_team': individual_rows_by_team,
+        }, request=request)
 
     clock = None
     if t.sport.slug == 'basketball':
         # Same fields + the same server-computed paused_quarter_remaining_seconds
         # the organizer scoring page already renders — the public match page's
-        # quarter-clock element (static/js/match-clock.js) reads these exact
-        # attributes, so this just keeps that one clock in sync, not a second one.
+        # quarter-clock AND shot-clock elements (static/js/match-clock.js) read
+        # these exact attributes, so this just keeps those two clocks in sync
+        # with the organizer's, not a second/duplicate timer implementation.
         clock = {
             'started_at': fixture.live_started_at.isoformat() if fixture.live_started_at else None,
             'extra_seconds': fixture.extra_time_seconds,
             'quarter_length_seconds': fixture.quarter_length_seconds,
             'paused': bool(fixture.clock_paused_at),
             'paused_remaining_seconds': fixture.paused_quarter_remaining_seconds,
+            'period_display': fixture.period_display,
+            'shot_running': bool(fixture.shot_clock_running_since),
+            'shot_started_at': (fixture.shot_clock_running_since.isoformat()
+                                if fixture.shot_clock_running_since else None),
+            'shot_remaining_seconds': fixture.shot_clock_seconds_remaining,
+            'shot_duration_seconds': fixture.shot_clock_duration_seconds,
         }
 
     return JsonResponse({
@@ -1103,6 +1190,7 @@ def fixture_live_json(request, fixture_id):
         # Drives the win-probability bar on the live scoreboard.
         'win_probability': fixture.win_probability,
         'clock': clock,
+        'individual_scoring_html': individual_scoring_html,
         'events': [{'text': e.description, 'at': e.created_at.strftime('%H:%M')}
                    for e in fixture.events.all()[:15]],
         'updated': timezone.now().isoformat(),
