@@ -171,6 +171,15 @@ def _detail_context(tournament):
     fixtures = tournament.fixtures.filter(is_removed=False).prefetch_related(
         'participants__team', 'participants__player__user').select_related('event_category')
     ctx['fixtures'] = fixtures
+    if tournament.is_pool_stage:
+        # Pool Stage + Knockout brings its own pool tables, pool-grouped
+        # fixtures and bracket — see tournaments/pools.py. Every other
+        # tournament falls through to the format branches below, unchanged.
+        from tournaments.pools import pool_view_context
+        ctx['is_pool_stage'] = True
+        ctx.update(pool_view_context(tournament))
+        ctx['bracket_rounds'] = ctx.get('knockout_rounds') or []
+        return ctx
     if tournament.format == C.FORMAT_KNOCKOUT:
         rounds = {}
         for fx in fixtures.order_by('round_no', 'sequence'):

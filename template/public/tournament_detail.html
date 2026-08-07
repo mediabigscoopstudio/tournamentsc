@@ -75,7 +75,10 @@
   <div data-tabs>
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="overview" aria-selected="true">Overview</button>
-      {% if bracket_rounds %}<button class="tab" data-tab="bracket">Bracket</button>
+      {% if is_pool_stage %}
+        {% if pools %}<button class="tab" data-tab="pools">Pools</button>{% endif %}
+        {% if knockout_rounds %}<button class="tab" data-tab="bracket">Bracket</button>{% endif %}
+      {% elif bracket_rounds %}<button class="tab" data-tab="bracket">Bracket</button>
       {% elif standings %}<button class="tab" data-tab="standings">Standings</button>
       {% elif leaderboard %}<button class="tab" data-tab="leaderboard">Leaderboard</button>{% endif %}
       <button class="tab" data-tab="fixtures">Fixtures</button>
@@ -107,6 +110,19 @@
       {% if yt_id %}<div class="embed" style="margin-top:20px;max-width:720px"><iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0" allowfullscreen title="Stream"></iframe></div>{% endif %}
     </div>
 
+    <!-- POOLS -->
+    {% if is_pool_stage and pools %}
+    <div class="tabpanel" data-panel="pools">
+      {% include 'public/_pool_standings.html' %}
+      <p class="dim" style="margin-top:14px;font-size:13px">
+        Pool standings update the moment a match is finalized.
+        {% if has_knockout %}The knockout bracket was drawn from the qualifiers.
+        {% else %}The knockout bracket is drawn automatically once every pool match is final
+          ({{ pool_stage_played }} of {{ pool_stage_total }} done).{% endif %}
+      </p>
+    </div>
+    {% endif %}
+
     <!-- BRACKET -->
     {% if bracket_rounds %}
     <div class="tabpanel" data-panel="bracket">
@@ -131,7 +147,11 @@
 
     <!-- FIXTURES -->
     <div class="tabpanel" data-panel="fixtures">
-      {% if fixtures %}
+      {% if is_pool_stage %}
+        {% if fixtures %}
+          {% include 'public/_pool_fixtures.html' %}
+        {% else %}<div class="empty">Fixtures haven't been published yet.</div>{% endif %}
+      {% elif fixtures %}
         <div class="flist">
           {% for fx in fixtures %}
             {% with ps=fx.ordered_participants %}

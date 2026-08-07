@@ -114,6 +114,14 @@ class Tournament(TimeStamped):
         blank=True, help_text='Google Form link for team/player registration — shown as a '
                               'button on the tournament page.')
     points_config = models.JSONField(default=C.default_points_config, blank=True)
+    # How this tournament's fixtures are produced. Every existing tournament
+    # defaults to CUSTOM — i.e. exactly the organiser-arranged flow it already
+    # had — so this field changes nothing until an organizer opts in.
+    fixture_mode = models.CharField(max_length=12, choices=C.FIXTURE_MODE_CHOICES,
+                                    default=C.FIXTURE_MODE_CUSTOM)
+    # Pool Stage + Knockout setup: {'num_pools', 'teams_per_pool',
+    # 'qualifiers_per_pool'}. Empty for every tournament not using that mode.
+    pool_config = models.JSONField(default=C.default_pool_config, blank=True)
     fixtures_generated = models.BooleanField(default=False)
     is_removed = models.BooleanField(default=False)  # admin moderation (soft)
 
@@ -168,7 +176,32 @@ class Tournament(TimeStamped):
 
     @property
     def uses_standings(self):
-        return self.format in (C.FORMAT_ROUND_ROBIN,)
+        return self.format in (C.FORMAT_ROUND_ROBIN,) or self.is_pool_stage
+
+    # --- Pool Stage + Knockout ------------------------------------------
+    @property
+    def supports_pool_stage(self):
+        """Whether the organizer may even be offered the pool option. Gated on
+        the sport, so no other sport's fixtures page changes at all."""
+        return self.sport.slug in C.POOL_STAGE_SPORTS
+
+    @property
+    def is_pool_stage(self):
+        """True only once the organizer has actively switched this tournament
+        to Pool Stage + Knockout. Everything else stays on Custom Fixtures."""
+        return self.supports_pool_stage and self.fixture_mode == C.FIXTURE_MODE_POOL
+
+    @property
+    def pool_settings(self):
+        """(num_pools, teams_per_pool, qualifiers_per_pool) as ints, 0 when unset."""
+        cfg = self.pool_config or {}
+
+        def as_int(key):
+            try:
+                return max(0, int(cfg.get(key) or 0))
+            except (TypeError, ValueError):
+                return 0
+        return as_int('num_pools'), as_int('teams_per_pool'), as_int('qualifiers_per_pool')
 
     def approved_entries(self):
         if self.is_team_based:
@@ -299,6 +332,12 @@ class Fixture(TimeStamped):
     event_category = models.ForeignKey(EventCategory, on_delete=models.SET_NULL, null=True, blank=True)
     round_name = models.CharField(max_length=60, blank=True)
     round_no = models.PositiveIntegerField(default=1)
+    # Pool Stage + Knockout only (see constants.STAGE_*). Blank on every
+    # fixture produced by any other flow, which is what every pre-existing
+    # fixture and every other sport stays as.
+    stage = models.CharField(max_length=12, blank=True)
+    pool_name = models.CharField(max_length=40, blank=True,
+                                 help_text='Pool label (A, B, C…) for pool-stage fixtures')
     sequence = models.PositiveIntegerField(default=0)
     bracket_position = models.PositiveIntegerField(null=True, blank=True)
     session_no = models.PositiveIntegerField(default=1, help_text='Time-trial: qualifying=1, race=2, ...')

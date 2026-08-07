@@ -37,7 +37,8 @@
     <a class="panel tblcard" href="{% url 'fixtures_manage' tournament.slug %}">
       <h3>② Fixtures</h3>
       <p class="muted">
-        {% if manual_mode %}{{ fixtures|length }} added · By Organiser
+        {% if pool_mode %}{{ fixtures|length }} · Pool Stage + Knockout
+        {% elif manual_mode %}{{ fixtures|length }} added · By Organiser
         {% else %}{{ fixtures|length }} generated{% endif %}
       </p>
     </a>

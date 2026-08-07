@@ -90,6 +90,7 @@ def tournament_manage(request, slug):
         'participant_count': t.participant_count(),
         'fixtures': t.fixtures.filter(is_removed=False).select_related('event_category'),
         'manual_mode': _manual_fixtures_supported(t),
+        'pool_mode': t.is_pool_stage,
         'pending_team_members': TeamMembership.objects.filter(
             team__entries__tournament=t, is_approved=False).select_related('team', 'player__user'),
     })
@@ -361,6 +362,13 @@ def _manual_fixtures_supported(t):
     return True
 
 
+def _custom_fixtures_active(t):
+    """The organiser-arranged "Add fixture" flow. Available exactly where it
+    always was, except while a tournament is actively running the opt-in Pool
+    Stage format — switching back to Custom Fixtures restores it untouched."""
+    return _manual_fixtures_supported(t) and not t.is_pool_stage
+
+
 def _manual_entrant_choices(t):
     """(key, label, payload) options for the organiser's fixture picker.
 
@@ -388,6 +396,10 @@ def _manual_entrant_choices(t):
 @require_POST
 def fixtures_generate(request, slug):
     t = _owned(request, slug)
+    if t.is_pool_stage:
+        messages.error(request, 'This tournament runs the Pool Stage format — use '
+                                '"Generate pool fixtures" below.')
+        return redirect('fixtures_manage', slug=slug)
     if _manual_fixtures_supported(t):
         messages.error(request, 'Fixtures for this tournament are created by the organiser '
                                 'below — use "Add fixture".')
@@ -424,6 +436,12 @@ def fixtures_generate_bracket(request, slug):
         messages.error(request, 'The knockout bracket generator is only available for '
                                 'knockout-format tournaments.')
         return redirect('fixtures_manage', slug=slug)
+    if t.is_pool_stage:
+        # The pool format builds its own bracket from the pool qualifiers —
+        # this generator would seed it from the raw team list and wipe the pools.
+        messages.error(request, 'This tournament runs the Pool Stage format — its knockout '
+                                'bracket is generated from the pool standings.')
+        return redirect('fixtures_manage', slug=slug)
     if t.participant_count() < 2:
         messages.error(request, 'Add at least two participants before generating a bracket.')
         return redirect('participants_manage', slug=slug)
@@ -445,7 +463,7 @@ def fixture_add_manual(request, slug):
     fixture. Additive — existing fixtures are never cleared — so the
     organiser builds the schedule up one match at a time."""
     t = _owned(request, slug)
-    if not _manual_fixtures_supported(t):
+    if not _custom_fixtures_active(t):
         messages.error(request, 'Manual fixture creation is not available for this tournament format.')
         return redirect('fixtures_manage', slug=slug)
 
@@ -509,18 +527,138 @@ def fixtures_manage(request, slug):
         Prefetch('participants',
                  queryset=FixtureParticipant.objects.select_related('team', 'player__user')))
     manual_mode = _manual_fixtures_supported(t)
-    is_knockout = t.format == C.FORMAT_KNOCKOUT
+    custom_mode = _custom_fixtures_active(t)
+    pool_mode = t.is_pool_stage
+    is_knockout = t.format == C.FORMAT_KNOCKOUT and not pool_mode
+    num_pools, teams_per_pool, qualifiers_per_pool = t.pool_settings
     ctx = {
         'tournament': t, 'fixtures': fixtures,
         'manual_mode': manual_mode,
-        'entrant_choices': _manual_entrant_choices(t) if manual_mode else [],
+        'custom_mode': custom_mode,
+        'entrant_choices': _manual_entrant_choices(t) if custom_mode else [],
         'is_knockout': is_knockout,
+        # Pool Stage + Knockout (basketball only — see Tournament.supports_pool_stage)
+        'pool_supported': t.supports_pool_stage,
+        'pool_mode': pool_mode,
+        'team_total': t.participant_count(),
+        'pool_form': {'num_pools': num_pools or '', 'teams_per_pool': teams_per_pool or '',
+                      'qualifiers_per_pool': qualifiers_per_pool or ''},
     }
     if is_knockout:
         bracket_rounds, champion = _knockout_bracket_context(list(fixtures))
         ctx['bracket_rounds'] = bracket_rounds
         ctx['champion'] = champion
+    if pool_mode:
+        from .pools import pool_view_context
+        ctx.update(pool_view_context(t))
     return render(request, 'organizer/fixtures.html', ctx)
+
+
+# ======================================================================
+# Pool Stage + Knockout (basketball only)
+# ======================================================================
+def _pool_int(request, field):
+    raw = (request.POST.get(field) or '').strip()
+    return int(raw) if raw.isdigit() else 0
+
+
+@approved_organizer_required
+@require_POST
+def fixture_mode_set(request, slug):
+    """Switch a tournament between Custom Fixtures and Pool Stage + Knockout.
+
+    Only ever flips the flag — no fixture is created, deleted or altered here,
+    so an organizer can look at the other option and switch straight back.
+    """
+    t = _owned(request, slug)
+    if not t.supports_pool_stage:
+        messages.error(request, 'This sport only supports Custom Fixtures.')
+        return redirect('fixtures_manage', slug=slug)
+    mode = request.POST.get('fixture_mode')
+    if mode not in (C.FIXTURE_MODE_CUSTOM, C.FIXTURE_MODE_POOL):
+        messages.error(request, 'Choose a fixture type.')
+        return redirect('fixtures_manage', slug=slug)
+    if mode == t.fixture_mode:
+        return redirect('fixtures_manage', slug=slug)
+    t.fixture_mode = mode
+    t.save(update_fields=['fixture_mode', 'updated_at'])
+    label = dict(C.FIXTURE_MODE_CHOICES)[mode]
+    messages.success(request, f'Fixture type set to {label}. Existing fixtures were left as they are.')
+    return redirect('fixtures_manage', slug=slug)
+
+
+@approved_organizer_required
+@require_POST
+def pool_setup(request, slug):
+    """Save the pool configuration, and optionally generate the pool fixtures.
+
+    Validation is server-side and authoritative: pools × teams-per-pool must
+    equal the approved team count, and nothing is generated until it does.
+    """
+    from .pools import PoolConfigError, validate_pool_config
+    t = _owned(request, slug)
+    if not t.is_pool_stage:
+        messages.error(request, 'Switch this tournament to Pool Stage + Knockout first.')
+        return redirect('fixtures_manage', slug=slug)
+
+    num_pools = _pool_int(request, 'num_pools')
+    teams_per_pool = _pool_int(request, 'teams_per_pool')
+    qualifiers_per_pool = _pool_int(request, 'qualifiers_per_pool')
+    # Remember what the organizer typed even when it does not validate, so the
+    # form comes back filled in rather than blank.
+    t.pool_config = {'num_pools': num_pools, 'teams_per_pool': teams_per_pool,
+                     'qualifiers_per_pool': qualifiers_per_pool}
+    t.save(update_fields=['pool_config', 'updated_at'])
+
+    total = t.participant_count()
+    ok, message = validate_pool_config(num_pools, teams_per_pool, qualifiers_per_pool, total)
+    if not ok:
+        messages.error(request, message)
+        return redirect('fixtures_manage', slug=slug)
+
+    if request.POST.get('action') != 'generate':
+        messages.success(request, 'Pool setup saved.')
+        return redirect('fixtures_manage', slug=slug)
+
+    try:
+        count = t.engine.generate_fixtures()
+    except PoolConfigError as exc:
+        messages.error(request, str(exc))
+        return redirect('fixtures_manage', slug=slug)
+    t.fixtures_generated = True
+    if t.status == 'DRAFT':
+        t.status = 'PUBLISHED'
+    t.save(update_fields=['fixtures_generated', 'status', 'updated_at'])
+    messages.success(
+        request, f'Generated {count} pool fixtures across {num_pools} pools. '
+                 f'The knockout bracket appears automatically once every pool match is final.')
+    return redirect('fixtures_manage', slug=slug)
+
+
+@approved_organizer_required
+@require_POST
+def pool_knockout_generate(request, slug):
+    """Rebuild the knockout bracket from the current pool standings.
+
+    The bracket is normally created automatically the moment the last pool
+    match is finalized. This is the organizer's explicit redo, for when a pool
+    result was corrected after the fact — it replaces any knockout fixtures
+    (and their scores), which the button confirms before posting.
+    """
+    t = _owned(request, slug)
+    if not t.is_pool_stage:
+        messages.error(request, 'This tournament does not run the Pool Stage format.')
+        return redirect('fixtures_manage', slug=slug)
+    engine = t.engine
+    if not engine.pool_stage_complete():
+        messages.error(request, 'Finish every pool match before generating the knockout bracket.')
+        return redirect('fixtures_manage', slug=slug)
+    count = engine.generate_knockout(force=True)
+    if count:
+        messages.success(request, f'Knockout bracket generated — {count} fixtures.')
+    else:
+        messages.error(request, 'Not enough qualified teams to build a knockout bracket.')
+    return redirect('fixtures_manage', slug=slug)
 
 
 @approved_organizer_required
@@ -538,7 +676,12 @@ def fixture_delete(request, slug, fixture_id):
     fixture = get_object_or_404(Fixture, id=fixture_id, tournament=t, is_removed=False)
     fixture.is_removed = True
     fixture.save(update_fields=['is_removed', 'updated_at'])
-    t.engine.compute_standings()  # no-op for formats without a table; refreshes round-robin
+    engine = t.engine
+    engine.compute_standings()  # no-op for formats without a table; refreshes round-robin
+    if t.is_pool_stage and fixture.stage == C.STAGE_POOL:
+        # Dropping the last outstanding pool match finishes the pool stage just
+        # as finalizing it would, so the bracket should appear here too.
+        engine.generate_knockout()
     messages.success(request, 'Fixture deleted.')
     return redirect('fixtures_manage', slug=slug)
 

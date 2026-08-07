@@ -42,6 +42,42 @@ SPORTS = {
 TEAM_BASED_FORMAT_TYPES = {'TEAM'}   # sports that always use teams
 # Note: BOTH/INDIVIDUAL sports use individual registration by default.
 
+# --- Fixture generation mode (additive to `format`, not a replacement) ---
+# `format` still picks the engine for every existing tournament. `fixture_mode`
+# only says *how* the organizer wants that tournament's fixtures produced:
+#   CUSTOM — the existing organiser-arranged "Add fixture" flow (the default,
+#            and the only mode any pre-existing tournament is ever in).
+#   POOL   — the pool stage + auto knockout format (basketball only, see
+#            POOL_STAGE_SPORTS below).
+FIXTURE_MODE_CUSTOM = 'CUSTOM'
+FIXTURE_MODE_POOL = 'POOL'
+
+FIXTURE_MODE_CHOICES = [
+    (FIXTURE_MODE_CUSTOM, 'Custom Fixtures'),
+    (FIXTURE_MODE_POOL, 'Pool Stage + Knockout'),
+]
+
+# Sports allowed to offer the Pool Stage + Knockout option. Deliberately a
+# one-item set: every other sport keeps exactly the fixture options it has
+# today, and adding a sport here is the only change needed to widen it.
+POOL_STAGE_SPORTS = {'basketball'}
+
+# Which half of a pool tournament a fixture belongs to. Blank on every fixture
+# created by any other flow (custom, bracket generator, engine bulk-generate),
+# so nothing outside the pool format ever has to look at it.
+STAGE_POOL = 'POOL'
+STAGE_KNOCKOUT = 'KNOCKOUT'
+
+# Pool-stage match points. Kept as their own keys inside the existing
+# per-tournament `points_config` blob so they are already configurable and
+# cannot collide with the round-robin engine's win/draw/loss values.
+POOL_POINTS_DEFAULTS = {'pool_win': 2, 'pool_loss': 1, 'pool_draw': 1}
+
+
+def default_pool_config():
+    """Per-tournament pool setup. Empty until the organizer configures it."""
+    return {}
+
 # --- Statuses -----------------------------------------------------------
 TOURNAMENT_STATUS = [
     ('DRAFT', 'Draft'),

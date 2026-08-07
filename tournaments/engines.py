@@ -508,4 +508,11 @@ _ENGINES = {
 
 
 def get_engine(tournament):
+    # Pool Stage + Knockout is an opt-in *fixture mode* layered over the
+    # tournament's format, so it is dispatched before the format map. Nothing
+    # reaches it unless an organizer switched this tournament to it on a sport
+    # that offers it — every other tournament resolves exactly as before.
+    if tournament.is_pool_stage:
+        from .pools import PoolKnockoutEngine
+        return PoolKnockoutEngine(tournament)
     return _ENGINES[tournament.format](tournament)

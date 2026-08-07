@@ -50,6 +50,11 @@ urlpatterns = [
     path('organizer/t/<slug:slug>/fixtures/generate-bracket', views.fixtures_generate_bracket,
          name='fixtures_generate_bracket'),
     path('organizer/t/<slug:slug>/fixtures/add-manual', views.fixture_add_manual, name='fixture_add_manual'),
+    # Pool Stage + Knockout (basketball only) — additive to the routes above.
+    path('organizer/t/<slug:slug>/fixtures/mode', views.fixture_mode_set, name='fixture_mode_set'),
+    path('organizer/t/<slug:slug>/fixtures/pools', views.pool_setup, name='pool_setup'),
+    path('organizer/t/<slug:slug>/fixtures/pools/knockout', views.pool_knockout_generate,
+         name='pool_knockout_generate'),
     path('organizer/t/<slug:slug>/fixtures/clear-all', views.fixtures_clear_all, name='fixtures_clear_all'),
     path('organizer/t/<slug:slug>/fixtures/<int:fixture_id>/delete',
          views.fixture_delete, name='fixture_delete'),

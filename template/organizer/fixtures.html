@@ -1,34 +1,176 @@
 {% extends 'base.html' %}
 {% block title %}Fixtures — {{ tournament.name }}{% endblock %}
 {% block content %}
-<section class="section wrap">
+<section class="section wrap fxpage">
   <a href="{% url 'tournament_manage' tournament.slug %}" class="dim">← Manage {{ tournament.name }}</a>
-  <div class="spread" style="margin-top:12px">
-    <h1>Fixtures &amp; scoring</h1>
-    <div class="row-flex" style="gap:8px">
-      {% if not manual_mode %}
-        <form method="post" action="{% url 'fixtures_generate' tournament.slug %}"
-              onsubmit="return confirm('Regenerate fixtures? Existing fixtures and their scores will be replaced.')">
-          {% csrf_token %}
-          <button class="btn btn-secondary btn-sm">
-            {% if tournament.fixtures_generated %}Regenerate{% else %}Generate{% endif %} fixtures
-          </button>
-        </form>
-      {% endif %}
-      {% if fixtures %}
-        <form method="post" action="{% url 'fixtures_clear_all' tournament.slug %}"
-              onsubmit="return confirm('Remove ALL {{ fixtures|length }} fixture(s) for this tournament? Scores, brackets, and standings built from them will be cleared. This cannot be undone.')">
-          {% csrf_token %}
-          <button class="btn btn-destructive btn-sm">Remove all fixtures</button>
-        </form>
-      {% endif %}
+
+  {# ================= CONTROL CENTER HERO ============================== #}
+  <div class="fxcc">
+    <div class="fxcc__row">
+      <div class="fxcc__id">
+        <span class="fxcc__ico">🏀</span>
+        <div>
+          <p class="fxcc__eyebrow">Fixtures &amp; scoring</p>
+          <h1 class="fxcc__t">Tournament Control Center</h1>
+          <p class="fxcc__sub">{{ tournament.name }}</p>
+        </div>
+      </div>
+      <div class="fxcc__acts">
+        {% if not manual_mode %}
+          <form method="post" action="{% url 'fixtures_generate' tournament.slug %}"
+                onsubmit="return confirm('Regenerate fixtures? Existing fixtures and their scores will be replaced.')">
+            {% csrf_token %}
+            <button class="btn btn--onnavy btn-sm">
+              {% if tournament.fixtures_generated %}Regenerate{% else %}Generate{% endif %} fixtures
+            </button>
+          </form>
+        {% endif %}
+        {% if fixtures %}
+          <form method="post" action="{% url 'fixtures_clear_all' tournament.slug %}"
+                onsubmit="return confirm('Remove ALL {{ fixtures|length }} fixture(s) for this tournament? Scores, brackets, and standings built from them will be cleared. This cannot be undone.')">
+            {% csrf_token %}
+            <button class="btn btn-destructive btn-sm">Remove all fixtures</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% comment %} Counts are read off the rendered cards, so they can never
+    disagree with the list underneath. Hidden until scripted — a hard-coded 0
+    would read as "no live matches" on a page that has three. {% endcomment %}
+    <div class="fxcc__stats" data-fx-stats hidden>
+      <div class="fxstat"><span class="fxstat__n" data-fx-stat="all">0</span><span class="fxstat__l">Matches</span></div>
+      <div class="fxstat is-live"><span class="fxstat__n" data-fx-stat="LIVE">0</span><span class="fxstat__l">Live now</span></div>
+      <div class="fxstat is-up"><span class="fxstat__n" data-fx-stat="UPCOMING">0</span><span class="fxstat__l">Upcoming</span></div>
+      <div class="fxstat is-done"><span class="fxstat__n" data-fx-stat="COMPLETED">0</span><span class="fxstat__l">Completed</span></div>
     </div>
   </div>
 
+  {% if pool_supported %}
+    {# --- Fixture type: Custom Fixtures vs Pool Stage + Knockout ------- #}
+    <div class="panel tblcard fxpanel">
+      <h3 class="fxpanel__h"><span class="fxpanel__ico">⚙️</span>Fixture type</h3>
+      <p class="muted fxpanel__p">Choose how this tournament's fixtures are built. Switching
+        type never touches fixtures you have already created.</p>
+      <form method="post" action="{% url 'fixture_mode_set' tournament.slug %}" style="margin-top:12px">
+        {% csrf_token %}
+        <div class="fmode">
+          <label class="fmode__opt {% if not pool_mode %}is-on{% endif %}">
+            <input type="radio" name="fixture_mode" value="CUSTOM" {% if not pool_mode %}checked{% endif %}>
+            <span>
+              <strong>Custom Fixtures</strong>
+              <em>Pick who plays whom and add matches one at a time.</em>
+            </span>
+          </label>
+          <label class="fmode__opt {% if pool_mode %}is-on{% endif %}">
+            <input type="radio" name="fixture_mode" value="POOL" {% if pool_mode %}checked{% endif %}>
+            <span>
+              <strong>Pool Stage + Knockout</strong>
+              <em>Round-robin pools, then an automatic knockout bracket from the qualifiers.</em>
+            </span>
+          </label>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:12px">Save fixture type</button>
+      </form>
+    </div>
+  {% endif %}
+
+  {% if pool_mode %}
+    {# --- Pool setup --------------------------------------------------- #}
+    <div class="panel tblcard fxpanel">
+      <h3 class="fxpanel__h"><span class="fxpanel__ico">🗂️</span>Pool stage setup</h3>
+      <p class="muted fxpanel__p">
+        Teams are drawn into pools in seed order. Inside each pool every team plays every
+        other team once.
+      </p>
+      <form method="post" action="{% url 'pool_setup' tournament.slug %}" style="margin-top:14px"
+            id="pool-setup-form" data-team-total="{{ team_total }}">
+        {% csrf_token %}
+        <div class="poolcfg">
+          <label class="poolcfg__f">
+            <span>Number of Pools</span>
+            <input class="input" type="number" name="num_pools" min="2" step="1" required
+                   value="{{ pool_form.num_pools }}" data-pool-input>
+          </label>
+          <label class="poolcfg__f">
+            <span>Teams Per Pool</span>
+            <input class="input" type="number" name="teams_per_pool" min="2" step="1" required
+                   value="{{ pool_form.teams_per_pool }}" data-pool-input>
+          </label>
+          <label class="poolcfg__f">
+            <span>Teams Qualifying Per Pool</span>
+            <input class="input" type="number" name="qualifiers_per_pool" min="1" step="1" required
+                   value="{{ pool_form.qualifiers_per_pool }}" data-pool-input>
+          </label>
+        </div>
+        <p class="poolcfg__hint" id="pool-hint" role="status" aria-live="polite">
+          This tournament has <strong>{{ team_total }}</strong> approved team{{ team_total|pluralize }}.
+        </p>
+        <div class="row-flex" style="margin-top:14px">
+          <button class="btn btn-secondary btn-sm" name="action" value="save">Save setup</button>
+          <button class="btn btn-primary btn-sm" name="action" value="generate"
+                  data-confirm="Generate pool fixtures? Any existing fixtures and their scores for this tournament will be replaced.">
+            {% if pools %}Regenerate{% else %}Generate{% endif %} pool fixtures
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {% if pools %}
+      {# --- Pool progress + knockout trigger --------------------------- #}
+      <div class="panel tblcard fxpanel">
+        <div class="spread">
+          <div>
+            <h3 class="fxpanel__h"><span class="fxpanel__ico">📈</span>Pool stage progress</h3>
+            <p class="muted fxpanel__p">
+              {{ pool_stage_played }} of {{ pool_stage_total }} pool matches final.
+              {% if has_knockout %}
+                The knockout bracket has been generated.
+              {% elif pool_stage_complete %}
+                Every pool match is final — generating the bracket now.
+              {% else %}
+                The knockout bracket is generated automatically once every pool match is final.
+              {% endif %}
+            </p>
+          </div>
+          {% if pool_stage_complete %}
+            <form method="post" action="{% url 'pool_knockout_generate' tournament.slug %}"
+                  onsubmit="return confirm('Rebuild the knockout bracket from the current pool standings? Any knockout fixtures and their scores will be replaced.')">
+              {% csrf_token %}
+              <button class="btn btn-secondary btn-sm">
+                {% if has_knockout %}Rebuild{% else %}Generate{% endif %} knockout bracket
+              </button>
+            </form>
+          {% endif %}
+        </div>
+        <div class="poolbar" style="margin-top:14px" role="img"
+             aria-label="{{ pool_stage_played }} of {{ pool_stage_total }} pool matches final">
+          <span class="poolbar__fill" style="width:{% if pool_stage_total %}{% widthratio pool_stage_played pool_stage_total 100 %}{% else %}0{% endif %}%"></span>
+        </div>
+      </div>
+
+      {# --- Pool standings --------------------------------------------- #}
+      <div class="fxblock" id="pool-standings">
+        <h3 class="fxblock__h"><span class="fxpanel__ico">📊</span>Pool standings</h3>
+        <div style="margin-top:12px">{% include 'public/_pool_standings.html' %}</div>
+      </div>
+
+      {# --- Knockout bracket ------------------------------------------- #}
+      {% if knockout_rounds %}
+        <div class="panel tblcard fxpanel">
+          <h3 class="fxpanel__h"><span class="fxpanel__ico">🏆</span>Knockout bracket</h3>
+          <div style="margin-top:12px">
+            {% include 'public/_bracket.html' with bracket_rounds=knockout_rounds %}
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+
   {% if is_knockout %}
-    <div class="panel tblcard" style="margin-top:16px">
-      <h3>Knockout Bracket</h3>
-      <p class="muted" style="margin-top:4px">
+    <div class="panel tblcard fxpanel">
+      <h3 class="fxpanel__h"><span class="fxpanel__ico">🏆</span>Knockout bracket</h3>
+      <p class="muted fxpanel__p">
         Auto-generate a full single-elimination bracket for every approved team.
         Works for any number of teams — byes up to the next power of two are added
         automatically, and winners advance into the next round as each match is finalized.
@@ -44,16 +186,16 @@
   {% endif %}
 
   {% if bracket_rounds %}
-    <div class="panel tblcard" style="margin-top:16px">
-      <h3>Bracket</h3>
-      {% include 'public/_bracket.html' %}
+    <div class="panel tblcard fxpanel">
+      <h3 class="fxpanel__h"><span class="fxpanel__ico">🥇</span>Bracket</h3>
+      <div style="margin-top:12px">{% include 'public/_bracket.html' %}</div>
     </div>
   {% endif %}
 
-  {% if manual_mode %}
-    <div class="panel tblcard" style="margin-top:16px">
-      <h3>By Organiser</h3>
-      <p class="muted" style="margin-top:4px">Create fixtures yourself — pick who plays whom and add them one at a time.</p>
+  {% if custom_mode %}
+    <div class="panel tblcard fxpanel">
+      <h3 class="fxpanel__h"><span class="fxpanel__ico">➕</span>Add a fixture</h3>
+      <p class="muted fxpanel__p">Create fixtures yourself — pick who plays whom and add them one at a time.</p>
       <form method="post" action="{% url 'fixture_add_manual' tournament.slug %}"
             class="row-flex" style="margin-top:12px; flex-wrap:wrap">
         {% csrf_token %}
@@ -77,36 +219,244 @@
     </div>
   {% endif %}
 
-  <div class="stack" style="margin-top:20px">
-    {% for fx in fixtures %}
-      <div class="fixture-row fx-row">
-        <div>
-          <div>
-            {% for p in fx.participants.all %}{{ p.name }}{% if not forloop.last %} <span class="dim">vs</span> {% endif %}{% endfor %}
-          </div>
-          <div class="dim" style="font-size:12px">
-            {{ fx.round_name|default:'Fixture' }}
-            {% if fx.scheduled_time %} · {{ fx.scheduled_time|date:'d M, H:i' }}{% else %} · <em>unscheduled</em>{% endif %}
-            {% if fx.venue_detail %} · {{ fx.venue_detail }}{% endif %}
-          </div>
-        </div>
-        <div class="row-flex">
-          {% if fx.status == 'LIVE' %}<span class="badge badge-live"><span class="badge-dot"></span>Live</span>
-          {% elif fx.status == 'COMPLETED' %}<span class="badge badge-completed">Final</span>
-          {% else %}<span class="badge badge-upcoming">{{ fx.get_status_display }}</span>{% endif %}
-          <a class="btn btn-secondary btn-sm" href="{% url 'fixture_schedule' tournament.slug fx.id %}">Schedule</a>
-          <a class="btn btn-primary btn-sm" href="{% url 'score_fixture' tournament.slug fx.id %}">Score</a>
-          <a class="btn btn-ghost btn-sm" href="{% url 'highlight_manage' tournament.slug fx.id %}">Highlight</a>
-          <form method="post" action="{% url 'fixture_delete' tournament.slug fx.id %}"
-                onsubmit="return confirm('Delete this fixture? This cannot be undone.')">
-            {% csrf_token %}
-            <button class="btn btn-destructive btn-sm" type="submit">Delete</button>
-          </form>
-        </div>
+  {# ================= MATCH CENTRE ===================================== #}
+  {% if fixtures %}
+    <div class="fxblock">
+      <div class="fxblock__top">
+        <h3 class="fxblock__h"><span class="fxpanel__ico">🎮</span>Match centre</h3>
       </div>
-    {% empty %}
-      <div class="empty">No fixtures yet. Generate them from the manage page.</div>
-    {% endfor %}
-  </div>
+
+      {# Filters are script-driven, so they only appear once they work. #}
+      <div class="fxfil" data-fx-filters hidden>
+        <div class="fxfil__grp" role="group" aria-label="Filter by match status">
+          <button type="button" class="fxchip is-on" data-fx-status="all">All matches</button>
+          <button type="button" class="fxchip fxchip--live" data-fx-status="LIVE"><span class="fxs__dot"></span>Live</button>
+          <button type="button" class="fxchip" data-fx-status="UPCOMING">Upcoming</button>
+          <button type="button" class="fxchip" data-fx-status="COMPLETED">Completed</button>
+        </div>
+        <div class="fxfil__grp fxfil__grp--rounds" role="group" aria-label="Filter by round"
+             data-fx-rounds></div>
+      </div>
+
+      <p class="fxfil__empty" data-fx-noresult hidden>
+        <span class="fxfil__empty-ico">🏀</span>
+        <strong>No matches here</strong>
+        Nothing matches the filters you picked — try “All matches”.
+      </p>
+
+      <div class="fxsecs" data-fx-list>
+        {% if pool_mode %}
+          {# Pool tournaments read pool by pool, then round by round. #}
+          {% for pool in pools %}
+            {% if pool.fixtures %}
+              {% include 'organizer/_fixture_group.html' with sec_key="pool-"|add:pool.label|slugify sec_title="Pool "|add:pool.label sec_fixtures=pool.fixtures sec_icon="🏀" sec_pool=1 sec_played=pool.played sec_total=pool.total %}
+            {% endif %}
+          {% endfor %}
+          {% for rnd in knockout_rounds %}
+            {% include 'organizer/_fixture_group.html' with sec_key=rnd.title|slugify sec_title=rnd.title sec_fixtures=rnd.fixtures sec_knockout=1 %}
+          {% endfor %}
+        {% else %}
+          {% regroup fixtures by round_name as fx_groups %}
+          {% for g in fx_groups %}
+            {% if g.grouper == 'Quarterfinal' or g.grouper == 'Semifinal' %}
+              {% include 'organizer/_fixture_group.html' with sec_key=g.grouper|slugify sec_title=g.grouper|add:'s' sec_fixtures=g.list sec_knockout=1 %}
+            {% elif g.grouper == 'Final' %}
+              {% include 'organizer/_fixture_group.html' with sec_key='final' sec_title='Final' sec_fixtures=g.list sec_knockout=1 %}
+            {% elif g.grouper %}
+              {% include 'organizer/_fixture_group.html' with sec_key=g.grouper|slugify sec_title=g.grouper sec_fixtures=g.list %}
+            {% else %}
+              {% include 'organizer/_fixture_group.html' with sec_key='fixtures' sec_title='Fixtures' sec_fixtures=g.list sec_icon='🏀' %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="fxempty">
+      <span class="fxempty__ico">🏀</span>
+      <h3>No fixtures yet</h3>
+      <p>
+        {% if pool_mode %}Set up your pools above and generate them to begin tournament play.
+        {% elif custom_mode %}Add your first fixture above to begin tournament play.
+        {% else %}Generate fixtures to begin tournament play.{% endif %}
+      </p>
+    </div>
+  {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Fixtures & scoring — presentation only.
+   Reads the cards the server already rendered: it counts them for the header
+   tiles and shows/hides them for the filter chips. Nothing here creates,
+   changes or submits a fixture. */
+(function () {
+  var list = document.querySelector('[data-fx-list]');
+  if (!list) return;
+
+  var cards    = Array.prototype.slice.call(list.querySelectorAll('[data-fx-card]'));
+  var sections = Array.prototype.slice.call(list.querySelectorAll('[data-fx-section]'));
+  var filters  = document.querySelector('[data-fx-filters]');
+  var rounds   = document.querySelector('[data-fx-rounds]');
+  var stats    = document.querySelector('[data-fx-stats]');
+  var noresult = document.querySelector('[data-fx-noresult]');
+  var status = 'all', round = 'all';
+
+  /* SCHEDULED and POSTPONED both read as "not played yet" to an organizer, so
+     the Upcoming chip covers both rather than leaving postponed matches
+     reachable only from "All". */
+  function bucket(s) {
+    if (s === 'LIVE' || s === 'COMPLETED') return s;
+    if (s === 'SCHEDULED' || s === 'POSTPONED') return 'UPCOMING';
+    return 'OTHER';
+  }
+
+  /* ---- header tiles ---- */
+  if (stats) {
+    var counts = { all: cards.length, LIVE: 0, UPCOMING: 0, COMPLETED: 0 };
+    cards.forEach(function (c) {
+      var b = bucket(c.dataset.status);
+      if (b in counts) counts[b]++;
+    });
+    stats.querySelectorAll('[data-fx-stat]').forEach(function (el) {
+      el.textContent = counts[el.dataset.fxStat] || 0;
+    });
+    stats.hidden = false;
+  }
+
+  /* ---- round chips, built from the sections actually on the page ---- */
+  if (rounds && sections.length > 1) {
+    sections.forEach(function (sec) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fxchip';
+      b.dataset.fxRound = sec.dataset.round;
+      b.textContent = sec.dataset.label;
+      rounds.appendChild(b);
+    });
+    var all = document.createElement('button');
+    all.type = 'button';
+    all.className = 'fxchip is-on';
+    all.dataset.fxRound = 'all';
+    all.textContent = 'All rounds';
+    rounds.insertBefore(all, rounds.firstChild);
+  }
+
+  function apply() {
+    var shown = 0;
+    sections.forEach(function (sec) {
+      var visible = 0;
+      sec.querySelectorAll('[data-fx-card]').forEach(function (c) {
+        var ok = (status === 'all' || bucket(c.dataset.status) === status)
+              && (round === 'all' || c.dataset.round === round);
+        c.hidden = !ok;
+        if (ok) visible++;
+      });
+      var none = sec.querySelector('[data-fx-none]');
+      if (none) none.hidden = visible > 0;
+      sec.hidden = (round !== 'all' && sec.dataset.round !== round);
+      if (!sec.hidden) shown += visible;
+    });
+    if (noresult) noresult.hidden = shown > 0;
+  }
+
+  function select(group, attr, value) {
+    group.querySelectorAll('[' + attr + ']').forEach(function (b) {
+      b.classList.toggle('is-on', b.getAttribute(attr) === value);
+    });
+  }
+
+  if (filters) {
+    filters.hidden = false;
+    filters.addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-fx-status], [data-fx-round]');
+      if (!chip) return;
+      if (chip.hasAttribute('data-fx-status')) {
+        status = chip.getAttribute('data-fx-status');
+        select(filters, 'data-fx-status', status);
+      } else {
+        round = chip.getAttribute('data-fx-round');
+        select(filters, 'data-fx-round', round);
+      }
+      apply();
+    });
+  }
+
+  /* A pool header's "Fixtures" button is just the round filter for that pool. */
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-fx-only]');
+    if (!btn) return;
+    round = btn.getAttribute('data-fx-only');
+    if (filters) select(filters, 'data-fx-round', round);
+    apply();
+    var sec = document.getElementById('fxsec-' + round);
+    if (sec) sec.scrollIntoView({ block: 'start' });
+  });
+})();
+</script>
+{% if pool_mode %}
+<script>
+/* Live pool-setup validation. Mirrors tournaments/pools.py::validate_pool_config —
+   the server still re-checks everything on submit, this only saves the round trip. */
+(function () {
+  var form = document.getElementById('pool-setup-form');
+  if (!form) return;
+  var hint = document.getElementById('pool-hint');
+  var total = parseInt(form.dataset.teamTotal, 10) || 0;
+  var generate = form.querySelector('button[value="generate"]');
+
+  function read(name) {
+    var el = form.querySelector('[name="' + name + '"]');
+    var v = parseInt(el && el.value, 10);
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+
+  function check() {
+    var pools = read('num_pools'), per = read('teams_per_pool'), qual = read('qualifiers_per_pool');
+    var teamWord = total === 1 ? 'team' : 'teams';
+    if (!pools || !per) {
+      hint.className = 'poolcfg__hint';
+      hint.innerHTML = 'This tournament has <strong>' + total + '</strong> approved ' + teamWord + '.';
+      return true;
+    }
+    var required = pools * per;
+    if (pools < 2) { return fail('Enter at least 2 pools.'); }
+    if (per < 2) { return fail('Each pool needs at least 2 teams so they can play each other.'); }
+    if (required !== total) {
+      return fail(pools + ' pools × ' + per + ' teams = ' + required + ' teams required — this '
+                  + 'tournament has ' + total + ' approved ' + teamWord + '.');
+    }
+    if (qual < 1) { return fail('At least 1 team per pool must qualify for the knockout.'); }
+    if (qual > per) {
+      return fail('Only ' + per + ' teams are in each pool, so at most ' + per + ' can qualify.');
+    }
+    if (pools * qual < 2) {
+      return fail('At least 2 teams in total must qualify for a knockout to be playable.');
+    }
+    var perPool = per * (per - 1) / 2;
+    hint.className = 'poolcfg__hint is-ok';
+    hint.textContent = pools + ' pools × ' + per + ' teams = ' + required + ' teams · '
+      + perPool + ' matches per pool (' + (perPool * pools) + ' total) · top ' + qual
+      + ' of each pool qualify (' + (pools * qual) + ' teams).';
+    return true;
+  }
+
+  function fail(message) {
+    hint.className = 'poolcfg__hint is-bad';
+    hint.textContent = message;
+    return false;
+  }
+
+  form.addEventListener('input', check);
+  form.addEventListener('submit', function (e) {
+    if (e.submitter === generate) {
+      if (!check()) { e.preventDefault(); return; }
+      if (!window.confirm(generate.dataset.confirm)) { e.preventDefault(); }
+    }
+  });
+  check();
+})();
+</script>
+{% endif %}
 {% endblock %}

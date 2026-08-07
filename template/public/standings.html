@@ -8,7 +8,17 @@
   <h1 style="margin-top:12px">Standings</h1>
 
   <div style="margin-top:20px">
-    {% if standings %}
+    {% if is_pool_stage %}
+      {% if pools %}
+        {% include 'public/_pool_standings.html' %}
+        {% if knockout_rounds %}
+          <h3 style="margin-top:28px">Knockout</h3>
+          <div style="margin-top:12px">{% include 'public/_bracket.html' %}</div>
+        {% endif %}
+      {% else %}
+        <div class="empty">Pool standings appear once the pools have been drawn.</div>
+      {% endif %}
+    {% elif standings %}
       {% include 'public/_standings_table.html' %}
     {% elif leaderboard %}
       {% include 'public/_leaderboard_table.html' %}

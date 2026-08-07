@@ -1,21 +1,416 @@
 {% extends 'base.html' %}
+{% load formtags %}
 {% block title %}{% if create %}Create{% else %}Edit{% endif %} tournament — {{ site_conf.site_name }}{% endblock %}
+
+{% comment %}
+  Organiser tournament builder. Presentation only — every control still posts
+  exactly what TournamentForm expects (`sport` / `format` are the plain radio
+  equivalents of their selects, the banner keeps Django's ClearableFileInput),
+  so validation, saving and the upload path are untouched.
+{% endcomment %}
+
 {% block content %}
-<section class="section wrap" style="max-width:720px">
-  <a class="dim" href="{% if create %}{% url 'organizer_dashboard' %}{% else %}{% url 'tournament_manage' tournament.slug %}{% endif %}">← Back</a>
-  <h1 style="margin-top:10px">{% if create %}Create tournament{% else %}Edit {{ tournament.name }}{% endif %}</h1>
+<section class="section wrap tcpage">
+
+  {# ---------- hero ---------- #}
+  <a class="tcpage__back" href="{% if create %}{% url 'organizer_dashboard' %}{% else %}{% url 'tournament_manage' tournament.slug %}{% endif %}">
+    <svg class="ico" aria-hidden="true"><use href="#i-arrow"/></svg>
+    {% if create %}My tournaments{% else %}Back to {{ tournament.name }}{% endif %}
+  </a>
+
+  <header class="tchero">
+    <div class="tchero__bg" aria-hidden="true"></div>
+    <div class="tchero__inner">
+      <div class="tchero__badge" aria-hidden="true">
+        <svg class="ico"><use href="#i-trophy"/></svg>
+      </div>
+      <div class="tchero__copy">
+        <span class="tchero__kicker">{% if create %}Organiser · New event{% else %}Organiser · Editing{% endif %}</span>
+        <h1>{% if create %}Create <span class="u">Tournament</span>{% else %}Edit <span class="u">{{ tournament.name }}</span>{% endif %}</h1>
+        <p class="tchero__sub">
+          {% if create %}Launch and manage your next sports event — build fixtures, manage teams,
+          track scores live and crown champions.{% else %}Update the details, schedule and branding
+          for this event. Everything stays live for your audience.{% endif %}
+        </p>
+      </div>
+      <ul class="tchero__perks">
+        <li><svg class="ico"><use href="#i-users"/></svg> Teams &amp; players</li>
+        <li><svg class="ico"><use href="#i-grid"/></svg> Auto fixtures</li>
+        <li><svg class="ico"><use href="#i-bolt"/></svg> Live scoring</li>
+      </ul>
+    </div>
+  </header>
+
+  {# ---------- progress rail (visual guide + jump links) ---------- #}
+  <nav class="tcrail" aria-label="Form sections">
+    <ol>
+      <li><a href="#tc-basics" data-tcstep="tc-basics"><span class="tcrail__n">1</span><span class="tcrail__t">Basics</span></a></li>
+      <li><a href="#tc-details" data-tcstep="tc-details"><span class="tcrail__n">2</span><span class="tcrail__t">Details</span></a></li>
+      <li><a href="#tc-schedule" data-tcstep="tc-schedule"><span class="tcrail__n">3</span><span class="tcrail__t">Venue &amp; schedule</span></a></li>
+      <li><a href="#tc-branding" data-tcstep="tc-branding"><span class="tcrail__n">4</span><span class="tcrail__t">Branding</span></a></li>
+      <li><a href="#tc-info" data-tcstep="tc-info"><span class="tcrail__n">5</span><span class="tcrail__t">Info</span></a></li>
+      <li><a href="#tc-links" data-tcstep="tc-links"><span class="tcrail__n">6</span><span class="tcrail__t">Links</span></a></li>
+    </ol>
+  </nav>
 
   {% if form.locked %}
-    <div class="msg info" style="margin-top:12px">Sport and format are locked because fixtures already exist.</div>
+    <div class="msg info tcpage__note">Sport and format are locked because fixtures already exist.</div>
   {% endif %}
 
-  <form method="post" enctype="multipart/form-data" class="panel tblcard" style="margin-top:20px">
+  <form method="post" enctype="multipart/form-data" class="tcform">
     {% csrf_token %}
-    {% include 'partials/form.html' %}
-    <div class="row-flex" style="margin-top:16px">
-      <button class="btn btn-primary" type="submit">{% if create %}Create draft{% else %}Save changes{% endif %}</button>
-      <a class="btn btn-ghost" href="{% if create %}{% url 'organizer_dashboard' %}{% else %}{% url 'tournament_manage' tournament.slug %}{% endif %}">Cancel</a>
+
+    {% if form.non_field_errors %}
+      <div class="msg error">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+    {% endif %}
+
+    {# ================= 1 · Tournament basics ================= #}
+    <section class="tccard" id="tc-basics">
+      <div class="tccard__head">
+        <span class="tccard__ico tccard__ico--gold" aria-hidden="true">🏆</span>
+        <div>
+          <h2>Tournament basics</h2>
+          <p>The name, the sport and how the competition is decided.</p>
+        </div>
+        <span class="tccard__step">Step 1</span>
+      </div>
+      <div class="tccard__body">
+
+        <div class="tcf {% if form.name.errors %}tcf--err{% endif %}">
+          <label class="tcf__lab" for="{{ form.name.id_for_label }}"><span class="tcf__emo">🏆</span>Tournament name</label>
+          {{ form.name|add_class:'input tcin' }}
+          {% if form.name.help_text %}<p class="tcf__hint">{{ form.name.help_text }}</p>{% endif %}
+          {% for e in form.name.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+
+        {# --- sport picker: radio cards carrying the exact select values --- #}
+        <div class="tcf {% if form.sport.errors %}tcf--err{% endif %}">
+          <div class="tcf__lab tcf__lab--head">
+            <span><span class="tcf__emo">🎽</span>{{ form.sport.label }}</span>
+            <span class="tcf__pickd" id="tc-sport-picked" aria-live="polite"></span>
+          </div>
+          <div class="tcpick tcpick--sport {% if form.locked %}tcpick--locked{% endif %}" role="radiogroup" aria-label="{{ form.sport.label }}">
+            {% for s in form.sport.field.queryset %}
+              <label class="tcopt {{ s.sp_class }}">
+                <input type="radio" name="{{ form.sport.html_name }}" value="{{ s.pk }}"
+                       data-tcsport="{{ s.icon }}|{{ s.name }}"
+                       {% if form.sport.value|stringformat:'s' == s.pk|stringformat:'s' %}checked{% endif %}
+                       {% if form.locked %}disabled{% endif %}>
+                <span class="tcopt__box">
+                  <span class="tcopt__emo" aria-hidden="true">{{ s.icon|default:'🏅' }}</span>
+                  <span class="tcopt__t">{{ s.name }}</span>
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+          {% if form.sport.help_text %}<p class="tcf__hint">{{ form.sport.help_text }}</p>{% endif %}
+          {% for e in form.sport.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+
+        {# --- format picker: radio cards carrying the exact select values --- #}
+        <div class="tcf {% if form.format.errors %}tcf--err{% endif %}">
+          <div class="tcf__lab tcf__lab--head"><span><span class="tcf__emo">🗂️</span>{{ form.format.label }}</span></div>
+          <div class="tcpick tcpick--fmt {% if form.locked %}tcpick--locked{% endif %}" role="radiogroup" aria-label="{{ form.format.label }}">
+            {% for value, label in form.format.field.choices %}{% if value %}
+              <label class="tcopt tcopt--wide">
+                <input type="radio" name="{{ form.format.html_name }}" value="{{ value }}"
+                       {% if form.format.value|stringformat:'s' == value|stringformat:'s' %}checked{% endif %}
+                       {% if form.locked %}disabled{% endif %}>
+                <span class="tcopt__box">
+                  <span class="tcopt__emo" aria-hidden="true">{% if value == 'KNOCKOUT' %}🏅{% elif value == 'ROUND_ROBIN' %}📊{% elif value == 'TIME_TRIAL' %}⏱️{% else %}🎯{% endif %}</span>
+                  <span class="tcopt__txt">
+                    <span class="tcopt__t">{{ label }}</span>
+                    <span class="tcopt__d">
+                      {% if value == 'KNOCKOUT' %}Lose once and you're out. Straight to a final.
+                      {% elif value == 'ROUND_ROBIN' %}Everyone plays everyone — a points table decides it.
+                      {% elif value == 'TIME_TRIAL' %}Ranked on times or positions across sessions.
+                      {% else %}One mass-start event, ranked a single time.{% endif %}
+                    </span>
+                  </span>
+                  <span class="tcopt__tick" aria-hidden="true"><svg class="ico"><use href="#i-check"/></svg></span>
+                </span>
+              </label>
+            {% endif %}{% endfor %}
+          </div>
+          {% if form.format.help_text %}<p class="tcf__hint">{{ form.format.help_text }}</p>{% endif %}
+          {% for e in form.format.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+
+      </div>
+    </section>
+
+    {# ================= 2 · Tournament details ================= #}
+    <section class="tccard" id="tc-details">
+      <div class="tccard__head">
+        <span class="tccard__ico tccard__ico--blue" aria-hidden="true">📝</span>
+        <div>
+          <h2>Tournament details</h2>
+          <p>What players read before they sign up.</p>
+        </div>
+        <span class="tccard__step">Step 2</span>
+      </div>
+      <div class="tccard__body">
+        <div class="tcf {% if form.description.errors %}tcf--err{% endif %}">
+          <label class="tcf__lab" for="{{ form.description.id_for_label }}"><span class="tcf__emo">📄</span>{{ form.description.label }}</label>
+          {{ form.description|add_class:'input tcin tcin--area' }}
+          {% if form.description.help_text %}<p class="tcf__hint">{{ form.description.help_text }}</p>{% endif %}
+          {% for e in form.description.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+        <div class="tcf {% if form.rules.errors %}tcf--err{% endif %}">
+          <label class="tcf__lab" for="{{ form.rules.id_for_label }}"><span class="tcf__emo">📜</span>{{ form.rules.label }}</label>
+          {{ form.rules|add_class:'input tcin tcin--area' }}
+          {% if form.rules.help_text %}<p class="tcf__hint">{{ form.rules.help_text }}</p>{% endif %}
+          {% for e in form.rules.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    {# ================= 3 · Venue & schedule ================= #}
+    <section class="tccard" id="tc-schedule">
+      <div class="tccard__head">
+        <span class="tccard__ico tccard__ico--green" aria-hidden="true">📍</span>
+        <div>
+          <h2>Venue &amp; schedule</h2>
+          <p>Where it's played and the dates that drive the fixture list.</p>
+        </div>
+        <span class="tccard__step">Step 3</span>
+      </div>
+      <div class="tccard__body">
+        <div class="tcgrid tcgrid--2">
+          <div class="tcf {% if form.venue.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.venue.id_for_label }}"><span class="tcf__emo">🏟️</span>{{ form.venue.label }}</label>
+            {{ form.venue|add_class:'input tcin tcin--sel' }}
+            {% if form.venue.help_text %}<p class="tcf__hint">{{ form.venue.help_text }}</p>{% endif %}
+            {% for e in form.venue.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="tcf {% if form.city.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.city.id_for_label }}"><span class="tcf__emo">📍</span>{{ form.city.label }}</label>
+            {{ form.city|add_class:'input tcin' }}
+            {% if form.city.help_text %}<p class="tcf__hint">{{ form.city.help_text }}</p>{% endif %}
+            {% for e in form.city.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+        </div>
+        <div class="tcgrid tcgrid--2">
+          <div class="tcf {% if form.start_date.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.start_date.id_for_label }}"><span class="tcf__emo">📅</span>{{ form.start_date.label }}</label>
+            {{ form.start_date|add_class:'input tcin tcin--date' }}
+            {% if form.start_date.help_text %}<p class="tcf__hint">{{ form.start_date.help_text }}</p>{% endif %}
+            {% for e in form.start_date.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="tcf {% if form.end_date.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.end_date.id_for_label }}"><span class="tcf__emo">🏁</span>{{ form.end_date.label }}</label>
+            {{ form.end_date|add_class:'input tcin tcin--date' }}
+            {% if form.end_date.help_text %}<p class="tcf__hint">{{ form.end_date.help_text }}</p>{% endif %}
+            {% for e in form.end_date.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+        </div>
+        <div class="tcf {% if form.registration_deadline.errors %}tcf--err{% endif %}">
+          <label class="tcf__lab" for="{{ form.registration_deadline.id_for_label }}"><span class="tcf__emo">⏳</span>{{ form.registration_deadline.label }}</label>
+          {{ form.registration_deadline|add_class:'input tcin tcin--date' }}
+          <p class="tcf__hint">{% if form.registration_deadline.help_text %}{{ form.registration_deadline.help_text }}{% else %}Entries close at this moment. Leave blank to keep them open.{% endif %}</p>
+          {% for e in form.registration_deadline.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    {# ================= 4 · Branding ================= #}
+    <section class="tccard" id="tc-branding">
+      <div class="tccard__head">
+        <span class="tccard__ico tccard__ico--purple" aria-hidden="true">🎨</span>
+        <div>
+          <h2>Branding</h2>
+          <p>The banner behind your tournament everywhere it appears.</p>
+        </div>
+        <span class="tccard__step">Step 4</span>
+      </div>
+      <div class="tccard__body">
+        <div class="tcf {% if form.banner_image.errors %}tcf--err{% endif %}">
+          <div class="tcf__lab tcf__lab--head"><span><span class="tcf__emo">🖼️</span>Tournament banner</span></div>
+
+          <div class="tcdrop" id="tc-drop">
+            <img class="tcdrop__preview" id="tc-drop-preview" alt="" hidden
+                 {% if not create and tournament.banner_image %}src="{{ tournament.banner_image.url }}"{% endif %}>
+            <div class="tcdrop__inner">
+              <span class="tcdrop__ico" aria-hidden="true"><svg class="ico"><use href="#i-image"/></svg></span>
+              <strong class="tcdrop__t tcdrop__t--empty">Drag &amp; drop your banner</strong>
+              <strong class="tcdrop__t tcdrop__t--set">Replace this banner</strong>
+              <span class="tcdrop__d">PNG or JPG · 1600×900 looks best</span>
+              <span class="tcdrop__or">or</span>
+              <span class="tcdrop__btn"><svg class="ico"><use href="#i-upload"/></svg> Browse files</span>
+            </div>
+            <span class="tcdrop__name" id="tc-drop-name" hidden></span>
+          </div>
+
+          {% comment %}
+            Django's own file widget — kept intact (incl. the "currently / clear"
+            controls when editing); only the file input itself is visually hidden
+            and driven by the zone above.
+          {% endcomment %}
+          <div class="tcdrop__native">{{ form.banner_image }}</div>
+
+          {% if form.banner_image.help_text %}<p class="tcf__hint">{{ form.banner_image.help_text }}</p>{% endif %}
+          {% for e in form.banner_image.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    {# ================= 5 · Tournament information ================= #}
+    <section class="tccard" id="tc-info">
+      <div class="tccard__head">
+        <span class="tccard__ico tccard__ico--orange" aria-hidden="true">💰</span>
+        <div>
+          <h2>Tournament information</h2>
+          <p>Money and capacity. All optional — leave blank to hide them.</p>
+        </div>
+        <span class="tccard__step">Step 5</span>
+      </div>
+      <div class="tccard__body">
+        <div class="tcgrid tcgrid--3">
+          <div class="tcf {% if form.entry_fee.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.entry_fee.id_for_label }}"><span class="tcf__emo">💰</span>{{ form.entry_fee.label }}</label>
+            <div class="tcin-wrap"><span class="tcin-wrap__pre" aria-hidden="true">₹</span>{{ form.entry_fee|add_class:'input tcin tcin--pre' }}</div>
+            {% if form.entry_fee.help_text %}<p class="tcf__hint">{{ form.entry_fee.help_text }}</p>{% endif %}
+            {% for e in form.entry_fee.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="tcf {% if form.prize_pool.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.prize_pool.id_for_label }}"><span class="tcf__emo">🏆</span>{{ form.prize_pool.label }}</label>
+            <div class="tcin-wrap"><span class="tcin-wrap__pre" aria-hidden="true">₹</span>{{ form.prize_pool|add_class:'input tcin tcin--pre' }}</div>
+            {% if form.prize_pool.help_text %}<p class="tcf__hint">{{ form.prize_pool.help_text }}</p>{% endif %}
+            {% for e in form.prize_pool.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="tcf {% if form.max_participants.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.max_participants.id_for_label }}"><span class="tcf__emo">👥</span>Maximum participants</label>
+            {{ form.max_participants|add_class:'input tcin' }}
+            {% if form.max_participants.help_text %}<p class="tcf__hint">{{ form.max_participants.help_text }}</p>{% endif %}
+            {% for e in form.max_participants.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ================= 6 · External links ================= #}
+    <section class="tccard" id="tc-links">
+      <div class="tccard__head">
+        <span class="tccard__ico tccard__ico--red" aria-hidden="true">🔗</span>
+        <div>
+          <h2>External links</h2>
+          <p>Stream the action and collect entries off-platform.</p>
+        </div>
+        <span class="tccard__step">Step 6</span>
+      </div>
+      <div class="tccard__body">
+        <div class="tcgrid tcgrid--2">
+          <div class="tcf {% if form.youtube_url.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.youtube_url.id_for_label }}"><span class="tcf__emo">▶️</span>YouTube stream URL</label>
+            {{ form.youtube_url|add_class:'input tcin' }}
+            {% if form.youtube_url.help_text %}<p class="tcf__hint">{{ form.youtube_url.help_text }}</p>{% endif %}
+            {% for e in form.youtube_url.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+          <div class="tcf {% if form.registration_form_url.errors %}tcf--err{% endif %}">
+            <label class="tcf__lab" for="{{ form.registration_form_url.id_for_label }}"><span class="tcf__emo">📋</span>{{ form.registration_form_url.label }}</label>
+            {{ form.registration_form_url|add_class:'input tcin' }}
+            {% if form.registration_form_url.help_text %}<p class="tcf__hint">{{ form.registration_form_url.help_text }}</p>{% endif %}
+            {% for e in form.registration_form_url.errors %}<p class="tcf__err">{{ e }}</p>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- actions ---------- #}
+    <div class="tcactions">
+      <p class="tcactions__note">
+        {% if create %}Saved as a <strong>draft</strong> first — add participants, then publish when you're ready.
+        {% else %}Changes go live on the public tournament page immediately.{% endif %}
+      </p>
+      <div class="tcactions__btns">
+        <a class="btn btn-secondary tcactions__cancel" href="{% if create %}{% url 'organizer_dashboard' %}{% else %}{% url 'tournament_manage' tournament.slug %}{% endif %}">Cancel</a>
+        <button class="btn btn-primary btn--lg tcactions__go" type="submit">
+          <svg class="ico" aria-hidden="true"><use href="#i-trophy"/></svg>
+          {% if create %}Create Tournament{% else %}Save changes{% endif %}
+        </button>
+      </div>
     </div>
   </form>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  /* ---- banner drop zone: drives Django's own file input, never replaces it ---- */
+  var zone = document.getElementById('tc-drop');
+  var input = document.querySelector('.tcdrop__native input[type="file"]');
+  if (zone && input) {
+    /* only now is it safe to hide the real input — the zone can drive it */
+    input.parentElement.classList.add('tcdrop__native--js');
+    var preview = document.getElementById('tc-drop-preview');
+    var nameTag = document.getElementById('tc-drop-name');
+    if (preview && preview.getAttribute('src')) { preview.hidden = false; zone.classList.add('tcdrop--has'); }
+
+    var show = function () {
+      var file = input.files && input.files[0];
+      if (!file) return;
+      if (nameTag) { nameTag.textContent = file.name; nameTag.hidden = false; }
+      zone.classList.add('tcdrop--has');
+      if (preview && /^image\//.test(file.type)) {
+        var reader = new FileReader();
+        reader.onload = function (e) { preview.src = e.target.result; preview.hidden = false; };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    input.addEventListener('change', show);
+    zone.addEventListener('click', function () { input.click(); });
+    zone.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+    });
+    input.addEventListener('focus', function () { zone.classList.add('tcdrop--focus'); });
+    input.addEventListener('blur', function () { zone.classList.remove('tcdrop--focus'); });
+
+    ['dragenter', 'dragover'].forEach(function (t) {
+      zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.add('tcdrop--over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (t) {
+      zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.remove('tcdrop--over'); });
+    });
+    zone.addEventListener('drop', function (e) {
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      try { input.files = files; } catch (err) { return; }   /* older browsers: fall back to click */
+      show();
+    });
+  }
+
+  /* ---- echo the chosen sport next to the picker's label ---- */
+  var picked = document.getElementById('tc-sport-picked');
+  var sports = document.querySelectorAll('[data-tcsport]');
+  if (picked && sports.length) {
+    var echo = function () {
+      var on = document.querySelector('[data-tcsport]:checked');
+      picked.textContent = on ? on.getAttribute('data-tcsport').replace('|', ' ') : '';
+    };
+    Array.prototype.forEach.call(sports, function (r) { r.addEventListener('change', echo); });
+    echo();
+  }
+
+  /* ---- progress rail highlights the section you're looking at ---- */
+  var links = document.querySelectorAll('.tcrail a[data-tcstep]');
+  if (links.length && 'IntersectionObserver' in window) {
+    var byId = {};
+    Array.prototype.forEach.call(links, function (a) { byId[a.getAttribute('data-tcstep')] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        Array.prototype.forEach.call(links, function (a) { a.classList.remove('is-on'); });
+        var a = byId[en.target.id];
+        if (a) { a.classList.add('is-on'); }
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    Object.keys(byId).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) io.observe(el);
+    });
+  }
+})();
+</script>
 {% endblock %}
