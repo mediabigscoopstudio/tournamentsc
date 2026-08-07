@@ -67,11 +67,11 @@
           <div class="scoreboard-main" aria-live="polite">
             {% for p in participants %}
               {% if forloop.first %}
-                <div class="competitor"><div class="competitor-crest" style="background:var(--{{ tournament.sport.sp_class }})">{{ p.initials }}</div><div class="competitor-name {% if p.is_winner %}winner{% endif %}">{{ p.name }}</div></div>
+                <div class="competitor"><div class="competitor-crest" style="background:var(--{{ tournament.sport.sp_class }})">{% if p.team.logo %}<img src="{{ p.team.logo.url }}" alt="" onerror="this.remove()">{% endif %}{{ p.initials }}</div><div class="competitor-name {% if p.is_winner %}winner{% endif %}">{{ p.name }}</div></div>
                 <div class="score-center"><span class="score-num" data-score="{{ p.id }}">{{ p.score|default_if_none:'0'|floatformat:'-2' }}</span><span class="score-divider">–</span>
               {% else %}
                 <span class="score-num" data-score="{{ p.id }}">{{ p.score|default_if_none:'0'|floatformat:'-2' }}</span></div>
-                <div class="competitor"><div class="competitor-crest">{{ p.initials }}</div><div class="competitor-name {% if p.is_winner %}winner{% endif %}">{{ p.name }}</div></div>
+                <div class="competitor"><div class="competitor-crest">{% if p.team.logo %}<img src="{{ p.team.logo.url }}" alt="" onerror="this.remove()">{% endif %}{{ p.initials }}</div><div class="competitor-name {% if p.is_winner %}winner{% endif %}">{{ p.name }}</div></div>
               {% endif %}
             {% endfor %}
           </div>

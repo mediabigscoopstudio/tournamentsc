@@ -398,71 +398,178 @@
     </div>
   {% endif %}
 
-  <form method="post" class="panel tblcard" style="margin-top:20px" id="enter-result-panel">
-    {% csrf_token %}
-    <h3>Enter result</h3>
-    <div class="stack" style="margin-top:16px">
-      {% for p in participants %}
-        <div class="row-flex" style="justify-content:space-between; gap:12px">
-          <strong style="flex:1">{{ p.name }}</strong>
-          {% if is_time %}
-            <input class="input" name="time_{{ p.id }}" placeholder="mm:ss.mmm"
-                   value="{{ p.time_display }}" style="max-width:140px">
-            <select name="state_{{ p.id }}" class="input" style="max-width:120px">
-              <option value="OK" {% if p.result_state == 'OK' %}selected{% endif %}>Finished</option>
-              <option value="DNF" {% if p.result_state == 'DNF' %}selected{% endif %}>DNF</option>
-              <option value="DSQ" {% if p.result_state == 'DSQ' %}selected{% endif %}>DSQ</option>
-            </select>
-          {% elif is_lobby %}
-            <input class="input" name="kills_{{ p.id }}" type="number" min="0" placeholder="kills"
-                   value="{{ p.stats.kills|default_if_none:'' }}" style="max-width:90px">
-            <input class="input" name="place_{{ p.id }}" type="number" min="1" placeholder="place"
-                   value="{{ p.rank|default_if_none:'' }}" style="max-width:90px">
-          {% else %}
-            <input class="input" name="score_{{ p.id }}" type="number" step="any"
-                   value="{{ p.score|default_if_none:'' }}" placeholder="score" style="max-width:120px">
-          {% endif %}
+  <div class="mcc">
+    <div class="mcc__head">
+      <span class="mcc__ic"><svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg></span>
+      <div>
+        <h2 class="mcc__t">Match Control Center</h2>
+        <p class="mcc__s">Record the result, manage the broadcast and call the play-by-play.</p>
+      </div>
+    </div>
+
+    <div class="mcc__grid">
+      <form method="post" class="mcc-card mcc-card--result" id="enter-result-panel" data-mcc-busyform>
+        {% csrf_token %}
+        <div class="mcc-card__head">
+          <span class="mcc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+          <div class="mcc-card__text">
+            <div class="mcc-card__t">Match Result</div>
+            <p class="mcc-card__s">Enter the final numbers, then finalize to update standings.</p>
+          </div>
         </div>
-      {% endfor %}
-    </div>
-    <div class="row-flex" style="margin-top:20px">
-      <button class="btn btn-secondary" name="action" value="save">Save progress</button>
-      <button class="btn btn-primary" name="action" value="finalize" id="finalize-btn"
-              onclick="return confirm('Finalize this match? Standings and brackets will update.')">
-        Finalize result
-      </button>
-    </div>
-  </form>
+        <div class="mcc-card__body">
+          <div class="mcc-match{% if participants|length == 2 %} mcc-match--duel{% endif %}">
+            {% for p in participants %}
+              <div class="mcc-side{% if not forloop.first %} mcc-side--b{% endif %}">
+                <span class="mcc-crest">
+                  {% if p.team.logo %}<img src="{{ p.team.logo.url }}" alt="" onerror="this.remove()">{% endif %}{{ p.initials }}
+                </span>
+                <span class="mcc-side__name">{{ p.name }}</span>
+                <span class="mcc-side__in">
+                  {% if is_time %}
+                    <input class="mcc-in mcc-in--sm" name="time_{{ p.id }}" placeholder="mm:ss.mmm"
+                           value="{{ p.time_display }}">
+                    <select name="state_{{ p.id }}" class="mcc-in mcc-in--sm">
+                      <option value="OK" {% if p.result_state == 'OK' %}selected{% endif %}>Finished</option>
+                      <option value="DNF" {% if p.result_state == 'DNF' %}selected{% endif %}>DNF</option>
+                      <option value="DSQ" {% if p.result_state == 'DSQ' %}selected{% endif %}>DSQ</option>
+                    </select>
+                  {% elif is_lobby %}
+                    <input class="mcc-in mcc-in--sm" name="kills_{{ p.id }}" type="number" min="0" placeholder="kills"
+                           value="{{ p.stats.kills|default_if_none:'' }}">
+                    <input class="mcc-in mcc-in--sm" name="place_{{ p.id }}" type="number" min="1" placeholder="place"
+                           value="{{ p.rank|default_if_none:'' }}">
+                  {% else %}
+                    <input class="mcc-in mcc-in--score" name="score_{{ p.id }}" type="number" step="any"
+                           value="{{ p.score|default_if_none:'' }}" placeholder="0"
+                           aria-label="{{ p.name }} score">
+                  {% endif %}
+                </span>
+              </div>
+              {% if participants|length == 2 and forloop.first %}<div class="mcc-vs">VS</div>{% endif %}
+            {% endfor %}
+          </div>
 
-  <div class="two-col" style="margin-top:24px; align-items:start">
-    <form method="post" class="panel tblcard">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="youtube">
-      <h3>Stream link</h3>
-      <div class="field" style="margin-top:12px">
-        <input class="input" name="youtube_url" value="{{ fixture.youtube_url }}"
-               placeholder="https://youtube.com/live/...">
-      </div>
-      <button class="btn btn-secondary btn-sm">Save stream</button>
-    </form>
+          <div class="mcc-actions">
+            <button class="btn mcc-btn2" name="action" value="save">Save progress</button>
+            <button class="btn btn-primary mcc-cta" name="action" value="finalize" id="finalize-btn"
+                    onclick="return confirm('Finalize this match? Standings and brackets will update.')">
+              <svg class="ico" aria-hidden="true"><use href="#i-trophy"></use></svg>Finalize Match
+            </button>
+          </div>
+        </div>
+      </form>
 
-    <form method="post" class="panel tblcard">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="commentary">
-      <h3>Post commentary</h3>
-      <div class="field" style="margin-top:12px">
-        <input class="input" name="commentary" placeholder="e.g. 18–16, timeout Ravens" maxlength="280">
-      </div>
-      <button class="btn btn-secondary btn-sm">Post</button>
-      <ul class="feed" style="margin-top:12px">
-        {% for e in events %}
-          <li><span class="t">{{ e.created_at|date:'H:i' }}</span><span>{{ e.description }}</span></li>
-        {% empty %}
-          <li class="dim">No commentary yet.</li>
-        {% endfor %}
-      </ul>
-    </form>
+      <form method="post" class="mcc-card mcc-card--stream" data-mcc-busyform>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="youtube">
+        <div class="mcc-card__head">
+          <span class="mcc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-cast"></use></svg></span>
+          <div class="mcc-card__text">
+            <div class="mcc-card__t">Live Stream Control</div>
+            <p class="mcc-card__s">Add a YouTube, Facebook or custom stream link for this match.</p>
+          </div>
+          <span class="mcc-status{% if fixture.youtube_url %} mcc-status--on{% endif %}">
+            <span class="dot"></span>{% if fixture.youtube_url %}Stream configured{% else %}No stream added{% endif %}
+          </span>
+        </div>
+        <div class="mcc-card__body">
+          <label class="mcc-inwrap" for="mcc-stream-url">
+            <svg class="ico" aria-hidden="true"><use href="#i-cast"></use></svg>
+            <input class="mcc-in" id="mcc-stream-url" name="youtube_url" value="{{ fixture.youtube_url }}"
+                   placeholder="https://youtube.com/live/..." aria-label="Stream URL">
+          </label>
+          <div class="mcc-actions" style="grid-template-columns:1fr">
+            <button class="btn btn-primary mcc-cta">
+              <svg class="ico" aria-hidden="true"><use href="#i-cast"></use></svg>Save Stream
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <form method="post" class="mcc-card mcc-card--comm" data-mcc-busyform>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="commentary">
+        <div class="mcc-card__head">
+          <span class="mcc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-mic"></use></svg></span>
+          <div class="mcc-card__text">
+            <div class="mcc-card__t">Live Commentary</div>
+            <p class="mcc-card__s">Post play-by-play updates to the public match page.</p>
+          </div>
+        </div>
+        <div class="mcc-card__body">
+          {% if is_basketball %}
+            {# quick-fill only — these type into the box below, they never post on their own #}
+            <div class="mcc-chips">
+              <button type="button" class="mcc-chip" data-mcc-chip="+1 Point">+1 Point</button>
+              <button type="button" class="mcc-chip" data-mcc-chip="+2 Points">+2 Points</button>
+              <button type="button" class="mcc-chip" data-mcc-chip="+3 Points">+3 Points</button>
+              <button type="button" class="mcc-chip" data-mcc-chip="Timeout">Timeout</button>
+              <button type="button" class="mcc-chip" data-mcc-chip="Foul">Foul</button>
+              <button type="button" class="mcc-chip" data-mcc-chip="Quarter End">Quarter End</button>
+            </div>
+          {% endif %}
+          <label class="mcc-inwrap" for="mcc-commentary">
+            <svg class="ico" aria-hidden="true"><use href="#i-mic"></use></svg>
+            <input class="mcc-in" id="mcc-commentary" name="commentary" maxlength="280"
+                   placeholder="e.g. 18–16, timeout Ravens" aria-label="Commentary">
+          </label>
+          <div class="mcc-actions" style="grid-template-columns:1fr">
+            <button class="btn btn-primary mcc-cta">
+              <svg class="ico" aria-hidden="true"><use href="#i-mic"></use></svg>Post Commentary
+            </button>
+          </div>
+
+          <div class="mcc-feed">
+            <div class="mcc-feed__h">
+              <svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg>Recent commentary
+            </div>
+            <ul class="mcc-feed__list">
+              {% for e in events %}
+                <li><span class="t">{{ e.created_at|date:'H:i' }}</span><span>{{ e.description }}</span></li>
+              {% empty %}
+                <li class="mcc-feed__empty">No commentary yet — post the first update.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 </section>
 {% endblock %}
-{% block scripts %}{% if is_basketball %}<script src="{% static 'js/match-clock.js' %}?v=4"></script><script src="{% static 'js/basketball-score.js' %}?v=5"></script>{% endif %}{% endblock %}
+{% block scripts %}{% if is_basketball %}<script src="{% static 'js/match-clock.js' %}?v=4"></script><script src="{% static 'js/basketball-score.js' %}?v=5"></script>{% endif %}
+<script>
+/* Match Control Center — presentation only. The chips type into the existing
+   commentary box (they never post on their own) and the busy state only paints
+   the button that was actually clicked. */
+(function () {
+  var box = document.getElementById('mcc-commentary');
+  document.querySelectorAll('[data-mcc-chip]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      if (!box) return;
+      var text = chip.dataset.mccChip;
+      box.value = box.value.trim() ? box.value.replace(/\s*$/, '') + ' — ' + text : text;
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    });
+  });
+
+  document.querySelectorAll('[data-mcc-busyform]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      /* The result form has two submit buttons. Mark the one that actually
+         fired — never light up Finalize because Save progress was clicked. */
+      var btn = e.submitter
+        ? (e.submitter.classList.contains('mcc-cta') ? e.submitter : null)
+        : form.querySelector('.mcc-cta');
+      if (!btn || btn.classList.contains('is-loading')) return;
+      btn.classList.add('is-loading');
+      btn.setAttribute('aria-busy', 'true');
+      /* disable only after the browser has serialised the form, so the
+         clicked button's own name/value still reaches the view */
+      setTimeout(function () { btn.disabled = true; }, 0);
+    });
+  });
+})();
+</script>
+{% endblock %}

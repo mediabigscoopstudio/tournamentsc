@@ -546,7 +546,13 @@ a.fixture-row:hover, a.frow:hover{ text-decoration:none; box-shadow:var(--shadow
 .scoreboard-clock{ font-family:var(--font-score); font-weight:600; font-size:13px; color:var(--muted); }
 .scoreboard-main{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .competitor{ display:flex; flex-direction:column; align-items:center; gap:10px; width:120px; text-align:center; }
-.competitor-crest{ width:56px; height:56px; border-radius:15px; display:grid; place-items:center; background:var(--navy); color:#fff; font-family:var(--font-display); font-weight:800; font-size:18px; }
+.competitor-crest{ position:relative; overflow:hidden; width:56px; height:56px; border-radius:15px; display:grid; place-items:center; background:var(--navy); color:#fff; font-family:var(--font-display); font-weight:800; font-size:18px; }
+/* Team crest. The <img> is laid OVER the initials rather than replacing them,
+   so a logo that 404s can just remove itself (see the onerror in
+   match_detail.html) and the initials underneath show through — no broken-image
+   icon, no empty circle. object-fit crops a rectangular logo without distorting
+   it, and the absolute box means the 48px mobile size needs no extra rule. */
+.competitor-crest img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .competitor-name{ font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--navy);
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   text-overflow:ellipsis; word-break:break-word; }
@@ -1040,6 +1046,492 @@ a.authcard:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-c
   .bball-indiv-cards{ grid-template-columns:1fr; }
   .bball-indiv-top{ flex-wrap:wrap; }
   .bball-indiv-top-points{ margin-left:0; }
+}
+
+/* ======================================================================
+   Participants page component kit (template/organizer/participants.html).
+   Two namespaces, both used ONLY by that template, so none of it can
+   reach the shared .panel / .field / .btn rules or any other screen:
+
+     .tmc-*   the Team Management Center panel (right column) plus the
+              card / label / input / drop-zone / CTA pieces the roster
+              cards in the left column reuse, so both columns read as one
+              design system.
+     .trc-*   the team roster cards themselves (left column).
+
+   `--sp` is the accent. It defaults to Flame Orange and is re-pointed at
+   the tournament's sport colour by the global .tag-<sport> class the
+   template puts on .tmc / .trc, so the page matches the tournament
+   header, the match cards and the basketball scoreboard.
+   ====================================================================== */
+.tmc{ --sp:var(--orange); position:relative; background:#fff; border:1px solid var(--line);
+  border-radius:var(--r-xl); overflow:hidden; box-shadow:var(--shadow); }
+
+/* ---- header: dark "broadcast" strip, same navy + accent glow language as
+   .hero and .org use on the public pages ---- */
+.tmc__head{ padding:22px; color:#fff; background:
+    radial-gradient(430px 320px at 100% -45%, color-mix(in srgb,var(--sp) 46%, transparent), transparent 62%),
+    radial-gradient(360px 260px at -12% 135%, rgba(30,136,229,.20), transparent 64%),
+    linear-gradient(180deg,#232c52 0%, #141a30 100%); }
+.tmc__headtop{ display:flex; align-items:center; gap:13px; }
+.tmc__crest{ flex:none; width:46px; height:46px; border-radius:14px; display:grid; place-items:center;
+  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); color:#fff; }
+.tmc__crest .ico{ width:23px; height:23px; }
+.tmc__headtext{ min-width:0; }
+.tmc__eyebrow{ display:block; font-family:var(--font-display); font-weight:800; font-size:10.5px;
+  letter-spacing:.14em; text-transform:uppercase; color:color-mix(in srgb,var(--sp) 45%, #fff); }
+.tmc__title{ font-family:var(--font-display); font-weight:900; font-style:italic; font-size:19px;
+  letter-spacing:-.02em; color:#fff; margin-top:4px; }
+.tmc__sub{ color:#b7bfd8; font-size:12.5px; line-height:1.5; margin-top:12px; }
+/* live roster counter — a read-out of the list on the left, not a control */
+.tmc__meter{ display:flex; align-items:center; gap:9px; margin-top:14px; padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.13); }
+.tmc__meter .n{ font-family:var(--font-score); font-weight:700; font-size:22px; line-height:1; color:#fff; }
+.tmc__meter .l{ font-family:var(--font-score); font-weight:600; font-size:11px; letter-spacing:.08em;
+  text-transform:uppercase; color:#9aa3c0; }
+.tmc__meter .dot{ width:6px; height:6px; border-radius:50%; background:var(--sp); flex:none; }
+
+/* ---- tab switcher: CSS-only (radio + :checked), so the panel still works
+   with JavaScript disabled ---- */
+.tmc__tabin{ position:absolute; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
+.tmc__tabs{ display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:5px;
+  background:var(--bg-2); border-bottom:1px solid var(--line); }
+.tmc__tab{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 8px;
+  border-radius:var(--r-md); font-family:var(--font-display); font-weight:800; font-size:12px;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--muted); cursor:pointer;
+  -webkit-user-select:none; user-select:none;
+  transition:color .2s var(--ease), background .2s var(--ease), box-shadow .2s var(--ease); }
+.tmc__tab .ico{ width:16px; height:16px; }
+.tmc__tab:hover{ color:var(--navy); }
+#tmc-tab-add:checked ~ .tmc__tabs [for="tmc-tab-add"],
+#tmc-tab-import:checked ~ .tmc__tabs [for="tmc-tab-import"]{
+  background:#fff; color:var(--navy); box-shadow:var(--shadow-sm); }
+#tmc-tab-add:focus-visible ~ .tmc__tabs [for="tmc-tab-add"],
+#tmc-tab-import:focus-visible ~ .tmc__tabs [for="tmc-tab-import"]{
+  outline:3px solid var(--blue); outline-offset:-2px; }
+
+.tmc__panel{ display:none; padding:18px; }
+#tmc-tab-add:checked ~ .tmc__panel--add,
+#tmc-tab-import:checked ~ .tmc__panel--import{ display:block; animation:tmcFade .3s var(--ease); }
+/* the individual-entrant variant has no tabs, so it is always on. Its fields
+   still come from partials/form.html, whose .field carries its own bottom
+   margin — drop the last one so it doesn't double up with .tmc-cta's. */
+.tmc__panel--solo{ display:block; }
+.tmc__panel--solo .field:last-of-type{ margin-bottom:0; }
+@keyframes tmcFade{ from{ opacity:0; transform:translateY(7px); } to{ opacity:1; transform:none; } }
+
+/* ---- the two cards inside the panels ---- */
+.tmc-card{ background:#fff; border:1px solid var(--line); border-radius:var(--r-lg); padding:18px;
+  box-shadow:var(--shadow-sm); }
+.tmc-card--import{ --sp:var(--blue); }
+.tmc-card__head{ display:flex; align-items:flex-start; gap:12px; padding-bottom:15px; margin-bottom:17px;
+  border-bottom:1px solid var(--line); }
+.tmc-card__ic{ flex:none; width:38px; height:38px; border-radius:12px; display:grid; place-items:center;
+  background:color-mix(in srgb,var(--sp) 13%,#fff); color:var(--sp); }
+.tmc-card__ic .ico{ width:19px; height:19px; }
+.tmc-card__t{ font-family:var(--font-display); font-weight:800; font-size:15.5px; color:var(--navy); }
+.tmc-card__s{ font-size:12.5px; line-height:1.5; color:var(--muted); margin-top:4px; }
+
+/* ---- fields ---- */
+.tmc-field+.tmc-field{ margin-top:16px; }
+.tmc-label{ display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:800;
+  font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--navy); margin-bottom:9px; }
+.tmc-label .ico{ width:15px; height:15px; color:var(--sp); }
+.tmc-input{ width:100%; min-height:50px; background:var(--bg-2); border:1.6px solid transparent;
+  border-radius:var(--r-md); font-family:var(--font-body); font-weight:600; font-size:15px; color:var(--ink);
+  padding:12px 15px; outline:none;
+  transition:background .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease); }
+.tmc-input::placeholder{ color:var(--muted); font-weight:500; }
+.tmc-input:hover{ border-color:var(--line-2); }
+.tmc-input:focus{ background:#fff; border-color:var(--sp);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--sp) 15%, transparent); }
+.tmc-input:focus-visible{ outline:none; }
+.tmc-err{ margin-top:7px; font-size:12px; font-weight:600; color:var(--live); }
+
+/* ---- drop zone. The real <input type="file"> is stretched across the whole
+   zone at opacity 0: that keeps the browser's own click-to-browse, native
+   drag-and-drop, keyboard focus and required-field validation intact — the
+   JS below only paints state on top of it. ---- */
+.tmc-drop{ position:relative; display:flex; align-items:center; gap:14px; padding:15px;
+  border:1.8px dashed var(--line-2); border-radius:var(--r-lg); background:var(--bg-2);
+  transition:border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease),
+             box-shadow .2s var(--ease); }
+.tmc-drop:hover{ border-color:var(--sp); background:color-mix(in srgb,var(--sp) 6%,#fff);
+  transform:translateY(-2px); box-shadow:var(--shadow-sm); }
+.tmc-drop:has(input:focus-visible){ border-color:var(--sp); border-style:solid;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--sp) 22%, transparent); }
+.tmc-drop.is-drag{ border-color:var(--sp); border-style:solid; transform:none;
+  background:color-mix(in srgb,var(--sp) 11%,#fff);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--sp) 16%, transparent); }
+.tmc-drop.is-filled{ border-style:solid; border-color:color-mix(in srgb,var(--green) 45%,#fff);
+  background:color-mix(in srgb,var(--green) 6%,#fff); }
+.tmc-drop__file{ position:absolute; inset:0; }
+.tmc-drop__file input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;
+  font-size:0; }
+.tmc-drop__thumb{ position:relative; flex:none; width:54px; height:54px; border-radius:14px; overflow:hidden;
+  display:grid; place-items:center; background:#fff; border:1px solid var(--line); color:var(--sp); }
+.tmc-drop__thumb .ico{ width:22px; height:22px; }
+.tmc-drop__thumb img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none; }
+.tmc-drop.has-img .tmc-drop__thumb img{ display:block; }
+.tmc-drop.has-img .tmc-drop__thumb .ico{ display:none; }
+.tmc-drop.is-filled .tmc-drop__thumb{ border-color:color-mix(in srgb,var(--green) 40%,#fff);
+  color:var(--green); }
+.tmc-drop__copy{ min-width:0; flex:1; }
+/* both are <span>s inside a form control's label copy — they must be blocks
+   for the stacking and the ellipsis below to apply at all */
+.tmc-drop__t,.tmc-drop__s{ display:block; }
+.tmc-drop__t{ font-weight:700; font-size:14px; color:var(--navy);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tmc-drop__s{ font-size:12px; color:var(--muted); margin-top:4px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tmc-drop__browse{ color:var(--sp); font-weight:700; }
+/* sits above the stretched input so it can be clicked to reset the choice */
+.tmc-drop__clear{ position:absolute; top:8px; right:8px; z-index:2; width:26px; height:26px; border-radius:50%;
+  display:grid; place-items:center; background:#fff; border:1px solid var(--line-2); color:var(--muted);
+  box-shadow:var(--shadow-sm); transition:color .18s, border-color .18s, transform .18s var(--ease); }
+.tmc-drop__clear:hover{ color:var(--live); border-color:var(--live); transform:scale(1.08); }
+.tmc-drop__clear .ico{ width:13px; height:13px; stroke-width:2.4; }
+.tmc-drop__clear[hidden]{ display:none; }
+
+/* ---- format hints + file-spec note ---- */
+.tmc-hints{ display:flex; flex-wrap:wrap; gap:7px; margin-top:14px; }
+.tmc-hint{ display:inline-flex; align-items:center; gap:6px; font-family:var(--font-score); font-weight:600;
+  font-size:11.5px; padding:5px 10px; border-radius:var(--r-pill); background:var(--bg-2);
+  border:1px solid var(--line); color:var(--ink-2); }
+.tmc-note{ margin-top:14px; padding:11px 13px; border-radius:var(--r-md); font-size:12.5px; line-height:1.55;
+  color:var(--ink-2); background:color-mix(in srgb,var(--sp) 7%,#fff);
+  border:1px solid color-mix(in srgb,var(--sp) 22%,#fff); }
+.tmc-note b{ color:var(--navy); }
+.tmc-note code{ font-family:var(--font-score); font-weight:700; color:var(--navy); background:#fff;
+  border:1px solid var(--line); border-radius:6px; padding:1px 7px; }
+
+/* ---- CTAs. Keeps the site's pill button shape, adds the taller stance,
+   display-face lettering and a single light sweep on hover. ---- */
+.tmc-cta{ position:relative; overflow:hidden; width:100%; min-height:52px; margin-top:18px;
+  font-family:var(--font-display); font-weight:800; font-size:13.5px; letter-spacing:.07em;
+  text-transform:uppercase; }
+.tmc-cta::after{ content:''; position:absolute; top:0; left:-65%; width:42%; height:100%;
+  transform:skewX(-18deg); pointer-events:none;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.32), transparent);
+  transition:left .6s var(--ease); }
+.tmc-cta:hover::after{ left:125%; }
+.tmc-cta--alt{ background:var(--navy); color:#fff; box-shadow:0 8px 20px -8px rgba(27,35,64,.55); }
+.tmc-cta--alt:hover{ background:var(--navy-2); transform:translateY(-2px);
+  box-shadow:0 12px 26px -8px rgba(27,35,64,.62); }
+@media (prefers-reduced-motion: reduce){ .tmc-cta::after{ display:none; } }
+
+/* submitting state — the button keeps its colour and swaps its icon for a
+   spinner, instead of the flat 50% dim .btn:disabled would otherwise give */
+.tmc-cta.is-loading{ pointer-events:none; }
+.tmc-cta.is-loading:disabled,.tmc-cta.is-loading.disabled{ opacity:.9; }
+.tmc-cta.is-loading .ico{ display:none; }
+.tmc-cta.is-loading::before{ content:''; width:16px; height:16px; border-radius:50%; flex:none;
+  border:2px solid color-mix(in srgb, currentColor 30%, transparent); border-top-color:currentColor;
+  animation:tmcSpin .7s linear infinite; }
+@keyframes tmcSpin{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){ .tmc-cta.is-loading::before{ animation-duration:2s; } }
+
+/* two-up field row (Player name + Jersey number). The margin reset matters:
+   these are grid cells, so .tmc-field+.tmc-field's stacking margin would push
+   the second field's label out of line with the first. */
+.tmc-row{ display:grid; grid-template-columns:1fr 132px; gap:12px; align-items:start; }
+.tmc-row > .tmc-field + .tmc-field{ margin-top:0; }
+
+@media (max-width:560px){
+  .tmc__head{ padding:18px; }
+  .tmc__title{ font-size:17.5px; }
+  .tmc__panel{ padding:14px; }
+  .tmc-card{ padding:15px; }
+  .tmc-drop{ flex-direction:column; align-items:stretch; text-align:center; gap:11px; padding:18px 14px; }
+  .tmc-drop__thumb{ margin-inline:auto; }
+  .tmc-hints{ justify-content:center; }
+  .tmc-row{ grid-template-columns:1fr; }
+}
+
+/* ----------------------------------------------------------------------
+   .trc — team roster card (left column of the Participants page)
+   ---------------------------------------------------------------------- */
+.trc{ --sp:var(--orange); background:#fff; border:1px solid var(--line); border-radius:var(--r-xl);
+  overflow:hidden; box-shadow:var(--shadow-sm); transition:box-shadow .25s var(--ease); }
+.trc:hover{ box-shadow:var(--shadow); }
+
+.trc__head{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:20px 22px;
+  background:linear-gradient(180deg, var(--bg-2) 0%, #fff 100%); border-bottom:1px solid var(--line); }
+.trc__crest{ position:relative; flex:none; width:62px; height:62px; border-radius:18px; overflow:hidden;
+  display:grid; place-items:center; color:#fff; font-family:var(--font-display); font-weight:800;
+  font-size:20px; letter-spacing:-.02em;
+  background:linear-gradient(145deg, var(--sp), color-mix(in srgb, var(--sp) 45%, var(--navy)));
+  box-shadow:0 12px 26px -14px color-mix(in srgb, var(--sp) 80%, transparent); }
+.trc__crest img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.trc__id{ min-width:0; flex:1 1 210px; }
+.trc__name{ font-family:var(--font-display); font-weight:900; font-style:italic;
+  font-size:clamp(1.15rem, 2.1vw, 1.5rem); letter-spacing:-.025em; line-height:1.1; color:var(--navy);
+  overflow-wrap:anywhere; }
+.trc__meta{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; }
+.trc__count{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-score);
+  font-weight:600; font-size:12.5px; color:var(--muted); }
+.trc__count .ico{ width:15px; height:15px; }
+.trc__acts{ display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+.trc__acts form{ display:contents; }
+.trc-remove{ background:#fff; color:var(--live); border:1.6px solid color-mix(in srgb,var(--live) 32%,#fff); }
+.trc-remove:hover{ background:var(--live); border-color:var(--live); color:#fff; transform:translateY(-2px); }
+
+/* status pill */
+.trc-status{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-display);
+  font-weight:800; font-size:11px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;
+  padding:6px 13px 6px 10px; border-radius:var(--r-pill);
+  background:var(--bg-3); color:var(--ink-2); border:1px solid var(--line-2); }
+.trc-status .ico{ width:14px; height:14px; stroke-width:2.6; }
+.trc-status--approved{ background:color-mix(in srgb,var(--green) 13%,#fff); color:#2f8a2c;
+  border-color:color-mix(in srgb,var(--green) 34%,#fff); }
+.trc-status--pending{ background:color-mix(in srgb,var(--gold) 16%,#fff); color:#a9760a;
+  border-color:color-mix(in srgb,var(--gold) 38%,#fff); }
+.trc-status--rejected{ background:color-mix(in srgb,var(--live) 11%,#fff); color:var(--live);
+  border-color:color-mix(in srgb,var(--live) 30%,#fff); }
+
+.trc__body{ display:flex; flex-direction:column; gap:20px; padding:20px 22px 22px; }
+
+/* stat strip */
+.trc-stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; }
+.trc-stat{ position:relative; overflow:hidden; padding:13px 15px 14px; border-radius:var(--r-md);
+  background:var(--bg-2); border:1px solid var(--line); }
+.trc-stat::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:var(--sp); opacity:.85; }
+.trc-stat .k{ display:flex; align-items:center; gap:6px; font-family:var(--font-score); font-weight:600;
+  font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.trc-stat .v{ font-family:var(--font-score); font-weight:700; font-size:26px; line-height:1.05;
+  color:var(--navy); margin-top:6px; }
+.trc-stat .v--word{ font-family:var(--font-display); font-weight:800; font-size:15px; margin-top:9px;
+  letter-spacing:-.01em; }
+
+/* section heading inside a roster card */
+.trc-sec{ display:flex; align-items:center; gap:9px; margin-bottom:13px; }
+.trc-sec__t{ display:flex; align-items:center; gap:9px; font-family:var(--font-display); font-weight:800;
+  font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:var(--navy); }
+.trc-sec__t .ico{ width:16px; height:16px; color:var(--sp); }
+.trc-sec__rule{ flex:1; height:1px; background:var(--line); }
+
+/* roster grid — 3 up on desktop, 2 up on tablet, 1 up on phones */
+.trc-roster{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.trc-player{ display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:var(--r-md);
+  background:#fff; border:1px solid var(--line); box-shadow:var(--shadow-sm);
+  transition:transform .2s var(--ease), box-shadow .2s var(--ease), border-color .2s var(--ease); }
+.trc-player:hover{ transform:translateY(-3px); box-shadow:var(--shadow);
+  border-color:color-mix(in srgb, var(--sp) 40%, #fff); }
+.trc-player__jersey{ flex:none; width:42px; height:42px; border-radius:50%; display:grid; place-items:center;
+  font-family:var(--font-score); font-weight:700; font-size:15px; color:var(--navy);
+  background:var(--bg-2); border:1.5px solid var(--line);
+  transition:background .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease); }
+.trc-player__jersey .ico{ width:18px; height:18px; color:var(--muted); }
+.trc-player:hover .trc-player__jersey{ background:var(--sp); border-color:var(--sp); color:#fff; }
+.trc-player:hover .trc-player__jersey .ico{ color:#fff; }
+.trc-player__body{ display:block; min-width:0; flex:1; }
+.trc-player__name{ display:block; font-weight:700; font-size:14px; color:var(--navy);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.trc-player__tags{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:5px; }
+.trc-player__role{ font-family:var(--font-score); font-weight:600; font-size:11px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); }
+.trc-flag{ font-family:var(--font-body); font-weight:800; font-size:9.5px; letter-spacing:.07em;
+  text-transform:uppercase; padding:2px 8px; border-radius:var(--r-pill); white-space:nowrap; }
+.trc-flag--captain{ background:color-mix(in srgb,var(--gold) 18%,#fff); color:#a9760a; }
+.trc-flag--pending{ background:color-mix(in srgb,var(--blue) 13%,#fff); color:var(--blue); }
+.trc-empty{ padding:28px 18px; text-align:center; font-size:13.5px; color:var(--muted);
+  background:var(--bg-2); border:1.5px dashed var(--line-2); border-radius:var(--r-lg); }
+.trc-empty .ico{ width:24px; height:24px; margin:0 auto 9px; color:var(--line-2); }
+
+/* Add Player + Import sit side by side wherever there is room — with eight
+   teams on a page, stacking them full width made each card ~1300px tall.
+   auto-fit means the non-basketball case (Add Player alone) still spans the
+   full width instead of leaving a dead half-column. */
+/* min() clamp is load-bearing: a bare minmax(300px,1fr) keeps a 300px floor
+   even when the card is narrower, which pushed the whole page sideways on a
+   320px phone. */
+.trc-tools{ display:grid; grid-template-columns:repeat(auto-fit, minmax(min(300px,100%),1fr)); gap:14px; }
+/* equal-height cards with both CTAs on the bottom edge, so the shorter card
+   doesn't leave a block of dead white space beside the taller one */
+.trc-tools > .tmc-card{ display:flex; flex-direction:column; }
+.trc-tools > .tmc-card > form{ flex:1; display:flex; flex-direction:column; gap:14px; }
+.trc-tools > .tmc-card > form > .tmc-hints,
+.trc-tools > .tmc-card > form > .tmc-note{ margin-top:0; }
+.trc-tools > .tmc-card > form > .tmc-cta{ margin-top:auto; }
+
+@media (max-width:1199.98px){
+  .trc-roster{ grid-template-columns:repeat(2,1fr); }
+}
+@media (max-width:767.98px){
+  .trc-roster{ grid-template-columns:1fr; }
+  .trc__head{ padding:16px; gap:13px; }
+  .trc__body{ padding:16px; gap:16px; }
+  .trc__crest{ width:52px; height:52px; border-radius:15px; font-size:17px; }
+  /* actions drop to their own full-width row rather than squeezing the name */
+  .trc__acts{ width:100%; margin-left:0; }
+  .trc__acts .btn{ flex:1 1 auto; }
+}
+@media (max-width:560px){
+  /* keep the three tiles as one scoreboard-style row instead of letting
+     auto-fit strand the third one on a half-width line of its own */
+  .trc-stats{ grid-template-columns:repeat(3,1fr); gap:8px; }
+  .trc-stat{ padding:11px 10px 12px; }
+  .trc-stat .k{ font-size:9.5px; letter-spacing:.05em; }
+  .trc-stat .v{ font-size:22px; }
+  .trc-stat .v--word{ font-size:13px; }
+}
+@media (max-width:480px){
+  .trc__acts .btn{ flex:1 1 100%; }
+}
+
+/* ======================================================================
+   Match Control Center — the Enter result / Stream link / Post commentary
+   cards at the foot of organizer/score.html ONLY. Namespaced under .mcc-
+   so nothing here can reach the .bball-* game view above it, the shared
+   .panel / .input / .feed / .btn rules, or any other screen.
+
+   `--sp` is the per-card accent, so the three cards read as one family
+   while still being tellable apart at a glance.
+   ====================================================================== */
+.mcc{ --sp:var(--orange); margin-top:26px; }
+.mcc__head{ display:flex; align-items:center; gap:13px; margin-bottom:16px; }
+.mcc__ic{ flex:none; width:44px; height:44px; border-radius:14px; display:grid; place-items:center;
+  color:#fff; background:linear-gradient(150deg, var(--navy-2), var(--navy));
+  box-shadow:0 12px 26px -14px rgba(27,35,64,.75); }
+.mcc__ic .ico{ width:22px; height:22px; }
+.mcc__t{ font-family:var(--font-display); font-weight:900; font-style:italic; font-size:19px;
+  letter-spacing:-.025em; color:var(--navy); line-height:1.1; }
+.mcc__s{ font-size:12.5px; color:var(--muted); margin-top:4px; }
+.mcc__grid{ display:grid; gap:16px; }
+
+.mcc-card{ background:#fff; border:1px solid var(--line); border-radius:var(--r-xl);
+  box-shadow:var(--shadow-sm); overflow:hidden; transition:box-shadow .25s var(--ease); }
+.mcc-card:hover{ box-shadow:var(--shadow); }
+.mcc-card--result{ --sp:var(--orange); }
+.mcc-card--stream{ --sp:var(--live); }
+.mcc-card--comm{ --sp:var(--blue); }
+.mcc-card__head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:15px 18px;
+  background:var(--bg-2); border-bottom:1px solid var(--line); }
+.mcc-card__ic{ flex:none; width:37px; height:37px; border-radius:12px; display:grid; place-items:center;
+  background:color-mix(in srgb, var(--sp) 14%, #fff); color:var(--sp); }
+.mcc-card__ic .ico{ width:19px; height:19px; }
+/* flex-basis 0 + min-width 0 so a long subtitle shrinks instead of wrapping
+   the whole text block onto the line below the icon on a phone */
+.mcc-card__text{ min-width:0; flex:1 1 0; }
+.mcc-card__t{ font-family:var(--font-display); font-weight:800; font-size:15px; color:var(--navy); }
+.mcc-card__s{ font-size:12px; line-height:1.5; color:var(--muted); margin-top:3px; }
+.mcc-card__body{ padding:18px; }
+
+/* ---- the matchup ---- */
+/* Default is the many-competitor shape (a lobby or a race); --duel is the
+   two-sided team/head-to-head shape the basketball panel actually uses. */
+.mcc-match{ display:grid; gap:12px;
+  grid-template-columns:repeat(auto-fill, minmax(min(210px,100%), 1fr)); }
+.mcc-match--duel{ grid-template-columns:1fr auto 1fr; align-items:stretch; }
+.mcc-side{ display:flex; flex-direction:column; align-items:center; gap:11px; text-align:center;
+  padding:16px 12px; border-radius:var(--r-lg); background:var(--bg-2); border:1px solid var(--line); }
+.mcc-crest{ position:relative; overflow:hidden; flex:none; width:56px; height:56px; border-radius:16px;
+  display:grid; place-items:center; color:#fff; font-family:var(--font-display); font-weight:800;
+  font-size:18px; letter-spacing:-.02em;
+  background:linear-gradient(145deg, var(--sp), color-mix(in srgb, var(--sp) 45%, var(--navy)));
+  box-shadow:0 10px 22px -12px color-mix(in srgb, var(--sp) 80%, transparent); }
+/* same trick as the public scoreboard: the logo sits OVER the initials, so an
+   image that 404s removes itself and the initials show through */
+.mcc-crest img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.mcc-side--b{ --sp:var(--navy); }
+.mcc-side__name{ font-family:var(--font-display); font-weight:800; font-size:14.5px; line-height:1.2;
+  color:var(--navy); overflow-wrap:anywhere; }
+.mcc-side__in{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; width:100%; margin-top:2px; }
+.mcc-vs{ align-self:center; justify-self:center; flex:none; font-family:var(--font-display); font-weight:900;
+  font-style:italic; font-size:12.5px; letter-spacing:.08em; color:var(--muted);
+  padding:8px 13px; border-radius:var(--r-pill); background:#fff; border:1.5px solid var(--line-2); }
+
+/* ---- inputs ---- */
+.mcc-in{ width:100%; min-height:50px; background:#fff; border:1.6px solid var(--line-2);
+  border-radius:var(--r-md); color:var(--ink); font-family:var(--font-body); font-weight:600;
+  font-size:15px; padding:10px 14px; outline:none;
+  transition:border-color .18s var(--ease), box-shadow .18s var(--ease); }
+.mcc-in::placeholder{ color:var(--muted); font-weight:500; }
+.mcc-in:focus{ border-color:var(--sp); box-shadow:0 0 0 4px color-mix(in srgb, var(--sp) 15%, transparent); }
+.mcc-in:focus-visible{ outline:none; }
+/* the head-to-head score box — scoreboard numerals, same as .bball-score */
+.mcc-in--score{ max-width:130px; text-align:center; font-family:var(--font-score); font-weight:700;
+  font-size:26px; min-height:58px; padding:8px 10px; }
+.mcc-in--sm{ max-width:132px; font-size:14px; min-height:46px; padding:9px 11px; }
+.mcc-inwrap{ display:block; position:relative; }
+.mcc-inwrap > .ico{ position:absolute; left:14px; top:50%; transform:translateY(-50%); width:17px; height:17px;
+  color:var(--muted); pointer-events:none; transition:color .18s var(--ease); }
+.mcc-inwrap > .mcc-in{ padding-left:42px; }
+.mcc-inwrap:focus-within > .ico{ color:var(--sp); }
+
+/* ---- status pill (stream configured / not) ---- */
+.mcc-status{ display:inline-flex; align-items:center; gap:8px; margin-left:auto; white-space:nowrap;
+  font-family:var(--font-score); font-weight:600; font-size:11px; letter-spacing:.07em;
+  text-transform:uppercase; padding:5px 12px; border-radius:var(--r-pill);
+  background:var(--bg-3); color:var(--muted); border:1px solid var(--line-2); }
+.mcc-status .dot{ width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; }
+.mcc-status--on{ background:color-mix(in srgb,var(--green) 13%,#fff); color:#2f8a2c;
+  border-color:color-mix(in srgb,var(--green) 34%,#fff); }
+
+/* ---- quick commentary chips ---- */
+.mcc-chips{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }
+.mcc-chip{ font-family:var(--font-body); font-weight:700; font-size:12px; padding:7px 13px;
+  border-radius:var(--r-pill); background:var(--bg-2); border:1.4px solid var(--line);
+  color:var(--ink-2); cursor:pointer; white-space:nowrap;
+  transition:background .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease),
+             transform .18s var(--ease); }
+.mcc-chip:hover{ background:color-mix(in srgb, var(--sp) 9%, #fff); border-color:var(--sp);
+  color:var(--navy); transform:translateY(-1px); }
+
+/* ---- commentary feed ---- */
+.mcc-feed{ margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+.mcc-feed__h{ display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:800;
+  font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--navy); margin-bottom:10px; }
+.mcc-feed__h .ico{ width:14px; height:14px; color:var(--sp); }
+.mcc-feed__list{ max-height:300px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.mcc-feed__list li{ display:flex; align-items:flex-start; gap:11px; padding:10px 2px;
+  border-bottom:1px solid var(--line); font-size:13.5px; line-height:1.45; color:var(--ink-2); }
+.mcc-feed__list li:last-child{ border-bottom:none; }
+.mcc-feed__list .t{ flex:none; font-family:var(--font-score); font-weight:700; font-size:11.5px;
+  color:var(--sp); background:color-mix(in srgb, var(--sp) 10%, #fff);
+  border:1px solid color-mix(in srgb, var(--sp) 22%, #fff); border-radius:6px; padding:2px 8px; }
+.mcc-feed__empty{ justify-content:center; color:var(--muted); font-size:13px; }
+
+/* ---- actions ---- */
+.mcc-actions{ display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:center; margin-top:18px; }
+.mcc-btn2{ background:#fff; color:var(--ink-2); border:1.6px solid var(--line-2); }
+.mcc-btn2:hover{ border-color:var(--navy); color:var(--navy); transform:translateY(-2px); }
+.mcc-cta{ position:relative; overflow:hidden; width:100%; min-height:54px;
+  font-family:var(--font-display); font-weight:800; font-size:13.5px; letter-spacing:.07em;
+  text-transform:uppercase; }
+.mcc-cta::after{ content:''; position:absolute; top:0; left:-65%; width:42%; height:100%;
+  transform:skewX(-18deg); pointer-events:none;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.32), transparent);
+  transition:left .6s var(--ease); }
+.mcc-cta:hover::after{ left:125%; }
+/* submitting state — reuses the tmcSpin keyframe defined above */
+.mcc-cta.is-loading{ pointer-events:none; }
+.mcc-cta.is-loading:disabled,.mcc-cta.is-loading.disabled{ opacity:.9; }
+.mcc-cta.is-loading .ico{ display:none; }
+.mcc-cta.is-loading::before{ content:''; width:16px; height:16px; border-radius:50%; flex:none;
+  border:2px solid color-mix(in srgb, currentColor 30%, transparent); border-top-color:currentColor;
+  animation:tmcSpin .7s linear infinite; }
+@media (prefers-reduced-motion: reduce){ .mcc-cta::after{ display:none; } }
+
+@media (max-width:520px){
+  .mcc__head{ gap:11px; }
+  .mcc-card__head{ padding:14px; }
+  .mcc-card__body{ padding:14px; }
+  /* the duel collapses to two stacked sides with the VS chip between them */
+  .mcc-match--duel{ grid-template-columns:1fr; }
+  .mcc-in--score{ max-width:none; }
+  .mcc-in--sm{ max-width:none; flex:1 1 120px; }
+  /* every action becomes a full-width touch target */
+  .mcc-actions{ grid-template-columns:1fr; }
+  .mcc-actions .btn{ width:100%; min-height:50px; }
+  /* the pill claims a full row of its own, so the icon and the heading stay
+     side by side on line 1 instead of the text dropping below the icon */
+  .mcc-status{ flex:0 0 100%; margin-left:0; }
+  /* chips grow to a comfortable thumb target rather than the 31px they
+     render at on a pointer device */
+  .mcc-chips{ gap:8px; }
+  .mcc-chip{ flex:1 1 auto; min-height:42px; padding:10px 14px; font-size:12.5px; }
 }
 
 /* Fullscreen game view on a landscape phone: short viewport height, so the

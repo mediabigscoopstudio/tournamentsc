@@ -13,13 +13,25 @@
     <div class="stack">
       {% if tournament.is_team_based %}
         {% for e in entries %}
-          <div class="panel tblcard">
-            <div class="spread">
-              <div>
-                <h3 style="display:inline">{{ e.team.name }}</h3>
-                <span class="badge badge-{{ e.get_status_display|slugify }}">{{ e.get_status_display }}</span>
+          {% with roster=e.team.memberships.all %}
+          <article class="trc {{ tournament.sport.tag_class }}">
+            <header class="trc__head">
+              <span class="trc__crest">
+                {% if e.team.logo %}<img src="{{ e.team.logo.url }}" alt="">{% else %}{{ e.team.initials }}{% endif %}
+              </span>
+              <div class="trc__id">
+                <h3 class="trc__name">{{ e.team.name }}</h3>
+                <div class="trc__meta">
+                  <span class="trc-status trc-status--{{ e.get_status_display|slugify }}">
+                    <svg class="ico" aria-hidden="true"><use href="{% if e.status == 'APPROVED' %}#i-check{% elif e.status == 'REJECTED' %}#i-x{% else %}#i-clock{% endif %}"></use></svg>{{ e.get_status_display }}
+                  </span>
+                  <span class="trc__count">
+                    <svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg>
+                    {{ roster|length }} player{{ roster|length|pluralize }} registered
+                  </span>
+                </div>
               </div>
-              <div class="row-flex">
+              <div class="trc__acts">
                 {% if e.status != 'APPROVED' %}
                   <form method="post" action="{% url 'entry_decide' tournament.slug 'team' e.id 'approve' %}">
                     {% csrf_token %}<button class="btn btn-primary btn-sm">Approve</button>
@@ -32,37 +44,139 @@
                 {% endif %}
                 <form method="post" action="{% url 'entry_decide' tournament.slug 'team' e.id 'remove' %}"
                       onsubmit="return confirm('Remove this team from the tournament?')">
-                  {% csrf_token %}<button class="btn btn-ghost btn-sm">Remove</button>
+                  {% csrf_token %}<button class="btn btn-sm trc-remove">Remove</button>
                 </form>
               </div>
+            </header>
+
+            <div class="trc__body">
+              <div class="trc-stats">
+                <div class="trc-stat">
+                  <div class="k"><svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg>Players</div>
+                  <div class="v">{{ roster|length }}</div>
+                </div>
+                <div class="trc-stat">
+                  <div class="k"><svg class="ico" aria-hidden="true"><use href="#i-shirt"></use></svg>Jerseys assigned</div>
+                  {# counted in-template so nothing on the view/model side has to change #}
+                  <div class="v">{% filter wordcount|stringformat:"d" %}{% for m in roster %}{% if m.jersey_number %}x {% endif %}{% endfor %}{% endfilter %}</div>
+                </div>
+                <div class="trc-stat">
+                  <div class="k"><svg class="ico" aria-hidden="true"><use href="#i-flag"></use></svg>Entry status</div>
+                  <div class="v v--word">{{ e.get_status_display }}</div>
+                </div>
+              </div>
+
+              <div>
+                <div class="trc-sec">
+                  <span class="trc-sec__t">
+                    <svg class="ico" aria-hidden="true"><use href="#i-shirt"></use></svg>Team roster
+                  </span>
+                  <span class="trc-sec__rule"></span>
+                </div>
+                {% if roster %}
+                  <div class="trc-roster">
+                    {% for m in roster %}
+                      <div class="trc-player">
+                        <span class="trc-player__jersey">
+                          {% if m.jersey_number %}{{ m.jersey_number }}{% else %}<svg class="ico" aria-hidden="true"><use href="#i-shirt"></use></svg>{% endif %}
+                        </span>
+                        <span class="trc-player__body">
+                          <span class="trc-player__name">{{ m.name }}</span>
+                          <span class="trc-player__tags">
+                            <span class="trc-player__role">{{ m.get_role_display }}</span>
+                            {% if m.role == 'CAPTAIN' %}<span class="trc-flag trc-flag--captain">C</span>{% endif %}
+                            {% if not m.is_approved %}<span class="trc-flag trc-flag--pending">Pending</span>{% endif %}
+                          </span>
+                        </span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <div class="trc-empty">
+                    <svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg>
+                    No players on this roster yet — add one below.
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="trc-tools">
+              <div class="tmc-card">
+                <div class="tmc-card__head">
+                  <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-plus"></use></svg></span>
+                  <div>
+                    <div class="tmc-card__t">Add New Player</div>
+                    <p class="tmc-card__s">Register a player on {{ e.team.name }}'s roster.</p>
+                  </div>
+                </div>
+                <form method="post" action="{% url 'team_member_add' tournament.slug e.team.id %}"
+                      data-tmc-busyform>
+                  {% csrf_token %}
+                  <div class="tmc-row">
+                    <div class="tmc-field">
+                      <label class="tmc-label" for="pl-name-{{ e.id }}">
+                        <svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg>Player Name
+                      </label>
+                      <input class="tmc-input" id="pl-name-{{ e.id }}" name="display_name"
+                             placeholder="e.g. Amit Nayak" required>
+                    </div>
+                    <div class="tmc-field">
+                      <label class="tmc-label" for="pl-num-{{ e.id }}">
+                        <svg class="ico" aria-hidden="true"><use href="#i-shirt"></use></svg>Jersey
+                      </label>
+                      <input class="tmc-input" id="pl-num-{{ e.id }}" name="jersey_number" placeholder="#">
+                    </div>
+                  </div>
+                  <button class="btn btn-primary tmc-cta">
+                    <svg class="ico" aria-hidden="true"><use href="#i-plus"></use></svg>Add Player
+                  </button>
+                </form>
+              </div>
+
+              {% if tournament.sport.slug == 'basketball' %}
+                <div class="tmc-card tmc-card--import">
+                  <div class="tmc-card__head">
+                    <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg></span>
+                    <div>
+                      <div class="tmc-card__t">Import Team Roster</div>
+                      <p class="tmc-card__s">Upload a CSV or Excel file to fill this roster in one go.</p>
+                    </div>
+                  </div>
+                  <form method="post" enctype="multipart/form-data"
+                        action="{% url 'team_members_bulk_import' tournament.slug e.team.id %}"
+                        data-tmc-busyform>
+                    {% csrf_token %}
+                    <div class="tmc-drop" data-tmc-drop>
+                      <span class="tmc-drop__thumb">
+                        <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
+                        <img alt="" data-tmc-preview>
+                      </span>
+                      <span class="tmc-drop__copy">
+                        <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop file here</span>
+                        <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — .xlsx or .csv</span>
+                      </span>
+                      <span class="tmc-drop__file">
+                        <input type="file" name="roster_file" accept=".csv,.xlsx" required>
+                      </span>
+                      <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected file">
+                        <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
+                      </button>
+                    </div>
+                    <div class="tmc-hints">
+                      <span class="tmc-hint">.XLSX</span>
+                      <span class="tmc-hint">.CSV</span>
+                      <span class="tmc-hint">2 columns</span>
+                    </div>
+                    <p class="tmc-note">Columns: <code>Player Name</code> and <code>Jersey Number</code> — one player per row.</p>
+                    <button class="btn tmc-cta tmc-cta--alt">
+                      <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>Import Team Roster
+                    </button>
+                  </form>
+                </div>
+              {% endif %}
+              </div>
             </div>
-
-            <ul class="stack" style="margin:12px 0; padding-left:16px">
-              {% for m in e.team.memberships.all %}
-                <li>{{ m.name }}{% if m.jersey_number %} <span class="mono dim">#{{ m.jersey_number }}</span>{% endif %}
-                  {% if not m.is_approved %}<span class="badge badge-upcoming">pending</span>{% endif %}</li>
-              {% empty %}<li class="dim">No members yet.</li>{% endfor %}
-            </ul>
-
-            <form method="post" action="{% url 'team_member_add' tournament.slug e.team.id %}" class="row-flex">
-              {% csrf_token %}
-              <input class="input" name="display_name" placeholder="Player name" required style="max-width:200px">
-              <input class="input" name="jersey_number" placeholder="#" style="max-width:70px">
-              <button class="btn btn-secondary btn-sm">Add member</button>
-            </form>
-
-            {% if tournament.sport.slug == 'basketball' %}
-              <form method="post" enctype="multipart/form-data"
-                    action="{% url 'team_members_bulk_import' tournament.slug e.team.id %}"
-                    class="row-flex" style="margin-top:8px">
-                {% csrf_token %}
-                <input class="input" type="file" name="roster_file" accept=".csv,.xlsx" required
-                       style="max-width:260px">
-                <button class="btn btn-ghost btn-sm">Import CSV / Excel</button>
-                <span class="dim" style="font-size:.85em">Columns: Player Name, Jersey Number</span>
-              </form>
-            {% endif %}
-          </div>
+          </article>
+          {% endwith %}
         {% empty %}
           <div class="empty">No teams yet. Add one on the right.</div>
         {% endfor %}
@@ -107,33 +221,250 @@
     </div>
 
     <aside>
-      <div class="panel tblcard">
-        {% if tournament.is_team_based %}
-          <h3>Add a team</h3>
-          <form method="post" enctype="multipart/form-data"
-                action="{% url 'team_add' tournament.slug %}" style="margin-top:12px">
-            {% csrf_token %}{% include 'partials/form.html' with form=team_form %}
-            <button class="btn btn-primary btn-block">Add team</button>
-          </form>
+      {% if tournament.is_team_based %}
+        <section class="tmc {{ tournament.sport.tag_class }}">
+          <header class="tmc__head">
+            <div class="tmc__headtop">
+              <span class="tmc__crest"><svg class="ico" aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+              <div class="tmc__headtext">
+                <span class="tmc__eyebrow">Team Registration</span>
+                <h2 class="tmc__title">Team Management Center</h2>
+              </div>
+            </div>
+            <p class="tmc__sub">Create teams one at a time or import a full roster of clubs in bulk.</p>
+            <div class="tmc__meter">
+              <span class="dot"></span>
+              <span class="n">{{ entries|length }}</span>
+              <span class="l">{% if entries|length == 1 %}Team registered{% else %}Teams registered{% endif %}</span>
+            </div>
+          </header>
 
-          <div class="divider"></div>
-          <h3>Upload Teams Excel/CSV File</h3>
-          <p class="muted" style="margin-top:4px; font-size:13px">Bulk-add teams from a file — one column, "Team Name".</p>
-          <form method="post" enctype="multipart/form-data"
-                action="{% url 'teams_bulk_import' tournament.slug %}" style="margin-top:12px">
-            {% csrf_token %}
-            <input class="input" type="file" name="teams_file" accept=".csv,.xlsx" required style="width:100%">
-            <button class="btn btn-secondary btn-block" style="margin-top:12px">Import teams</button>
-          </form>
-        {% else %}
-          <h3>Add an entrant</h3>
-          <form method="post" action="{% url 'individual_add' tournament.slug %}" style="margin-top:12px">
-            {% csrf_token %}{% include 'partials/form.html' with form=entry_form %}
-            <button class="btn btn-primary btn-block">Add entrant</button>
-          </form>
-        {% endif %}
-      </div>
+          <input class="tmc__tabin" type="radio" name="tmc-tab" id="tmc-tab-add" checked>
+          <input class="tmc__tabin" type="radio" name="tmc-tab" id="tmc-tab-import">
+          <div class="tmc__tabs">
+            <label class="tmc__tab" for="tmc-tab-add">
+              <svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg>Add Team
+            </label>
+            <label class="tmc__tab" for="tmc-tab-import">
+              <svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg>Bulk Import
+            </label>
+          </div>
+
+          <div class="tmc__panel tmc__panel--add">
+            <div class="tmc-card">
+              <div class="tmc-card__head">
+                <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg></span>
+                <div>
+                  <div class="tmc-card__t">Add a Team</div>
+                  <p class="tmc-card__s">Register a single club and give it a crest.</p>
+                </div>
+              </div>
+
+              <form method="post" enctype="multipart/form-data" action="{% url 'team_add' tournament.slug %}" data-tmc-busyform>
+                {% csrf_token %}
+                <div class="tmc-field">
+                  <label class="tmc-label" for="{{ team_form.name.id_for_label }}">
+                    <svg class="ico" aria-hidden="true"><use href="#i-flag"></use></svg>Team Name
+                  </label>
+                  {{ team_form.name|add_class:'tmc-input' }}
+                  {% for e in team_form.name.errors %}<div class="tmc-err">{{ e }}</div>{% endfor %}
+                </div>
+
+                <div class="tmc-field">
+                  <label class="tmc-label" for="{{ team_form.logo.id_for_label }}">
+                    <svg class="ico" aria-hidden="true"><use href="#i-image"></use></svg>Team Logo
+                  </label>
+                  <div class="tmc-drop" data-tmc-drop data-tmc-accept="image/*">
+                    <span class="tmc-drop__thumb">
+                      <svg class="ico" aria-hidden="true"><use href="#i-image"></use></svg>
+                      <img alt="" data-tmc-preview>
+                    </span>
+                    <span class="tmc-drop__copy">
+                      <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop logo</span>
+                      <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — PNG, JPG, SVG</span>
+                    </span>
+                    <span class="tmc-drop__file">{{ team_form.logo }}</span>
+                    <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected logo">
+                      <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
+                    </button>
+                  </div>
+                  {% for e in team_form.logo.errors %}<div class="tmc-err">{{ e }}</div>{% endfor %}
+                </div>
+
+                <button class="btn btn-primary tmc-cta">
+                  <svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg>Add Team
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="tmc__panel tmc__panel--import">
+            <div class="tmc-card tmc-card--import">
+              <div class="tmc-card__head">
+                <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg></span>
+                <div>
+                  <div class="tmc-card__t">Bulk Team Import</div>
+                  <p class="tmc-card__s">Upload an Excel or CSV file to add every team at once.</p>
+                </div>
+              </div>
+
+              <form method="post" enctype="multipart/form-data" action="{% url 'teams_bulk_import' tournament.slug %}" data-tmc-busyform>
+                {% csrf_token %}
+                <div class="tmc-drop" data-tmc-drop>
+                  <span class="tmc-drop__thumb">
+                    <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
+                    <img alt="" data-tmc-preview>
+                  </span>
+                  <span class="tmc-drop__copy">
+                    <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop your file</span>
+                    <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — .xlsx or .csv</span>
+                  </span>
+                  <span class="tmc-drop__file">
+                    <input type="file" name="teams_file" accept=".csv,.xlsx" required>
+                  </span>
+                  <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected file">
+                    <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
+                  </button>
+                </div>
+
+                <div class="tmc-hints">
+                  <span class="tmc-hint">.XLSX</span>
+                  <span class="tmc-hint">.CSV</span>
+                  <span class="tmc-hint">1 column</span>
+                </div>
+                <p class="tmc-note">Use a single column headed <code>Team Name</code> — one team per row. Empty rows are skipped.</p>
+
+                <button class="btn tmc-cta tmc-cta--alt">
+                  <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>Import Teams
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+      {% else %}
+        <section class="tmc {{ tournament.sport.tag_class }}">
+          <header class="tmc__head">
+            <div class="tmc__headtop">
+              <span class="tmc__crest"><svg class="ico" aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+              <div class="tmc__headtext">
+                <span class="tmc__eyebrow">Entrant Registration</span>
+                <h2 class="tmc__title">Entrant Management Center</h2>
+              </div>
+            </div>
+            <p class="tmc__sub">Add competitors to the draw and manage their status from the list.</p>
+            <div class="tmc__meter">
+              <span class="dot"></span>
+              <span class="n">{{ registrations|length }}</span>
+              <span class="l">{% if registrations|length == 1 %}Entrant registered{% else %}Entrants registered{% endif %}</span>
+            </div>
+          </header>
+
+          <div class="tmc__panel tmc__panel--solo">
+            <div class="tmc-card">
+              <div class="tmc-card__head">
+                <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg></span>
+                <div>
+                  <div class="tmc-card__t">Add an Entrant</div>
+                  <p class="tmc-card__s">Register a single competitor for this tournament.</p>
+                </div>
+              </div>
+              <form method="post" action="{% url 'individual_add' tournament.slug %}" data-tmc-busyform>
+                {% csrf_token %}{% include 'partials/form.html' with form=entry_form %}
+                <button class="btn btn-primary tmc-cta">
+                  <svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg>Add Entrant
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+      {% endif %}
     </aside>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Team Management Center — presentation only. The real <input type="file">
+   keeps doing all the work (native browse, native drag-and-drop, required
+   validation, submission); this just reflects its state in the drop zone. */
+(function () {
+  document.querySelectorAll('[data-tmc-drop]').forEach(function (zone) {
+    var input = zone.querySelector('input[type="file"]');
+    if (!input) return;
+
+    var img = zone.querySelector('[data-tmc-preview]');
+    var title = zone.querySelector('[data-tmc-title]');
+    var sub = zone.querySelector('[data-tmc-sub]');
+    var clear = zone.querySelector('[data-tmc-clear]');
+    var idleTitle = title.textContent;
+    var idleSub = sub.innerHTML;
+
+    if (zone.dataset.tmcAccept && !input.getAttribute('accept')) {
+      input.setAttribute('accept', zone.dataset.tmcAccept);
+    }
+
+    function render() {
+      var file = input.files && input.files[0];
+      zone.classList.remove('is-drag');
+
+      if (!file) {
+        zone.classList.remove('is-filled', 'has-img');
+        title.textContent = idleTitle;
+        sub.innerHTML = idleSub;
+        if (img) img.removeAttribute('src');
+        if (clear) clear.hidden = true;
+        return;
+      }
+
+      zone.classList.add('is-filled');
+      title.textContent = file.name;
+      sub.textContent = Math.max(1, Math.round(file.size / 1024)) + ' KB · ready to upload';
+      if (clear) clear.hidden = false;
+
+      if (img && file.type.indexOf('image/') === 0) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          img.src = e.target.result;
+          zone.classList.add('has-img');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        zone.classList.remove('has-img');
+      }
+    }
+
+    input.addEventListener('change', render);
+
+    if (clear) {
+      clear.addEventListener('click', function () {
+        input.value = '';
+        render();
+      });
+    }
+
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      zone.addEventListener(evt, function () { zone.classList.add('is-drag'); });
+    });
+    ['dragleave', 'dragend', 'drop'].forEach(function (evt) {
+      zone.addEventListener(evt, function () { zone.classList.remove('is-drag'); });
+    });
+
+    render(); /* a browser-restored file selection shows up straight away */
+  });
+
+  /* Submitting state. The disable lands on the next tick so the browser has
+     already serialised the form — and `submit` never fires when a required
+     field is empty, so the button can't get stuck. */
+  document.querySelectorAll('[data-tmc-busyform]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+      var btn = form.querySelector('.tmc-cta');
+      if (!btn || btn.classList.contains('is-loading')) return;
+      btn.classList.add('is-loading');
+      btn.setAttribute('aria-busy', 'true');
+      setTimeout(function () { btn.disabled = true; }, 0);
+    });
+  });
+})();
+</script>
 {% endblock %}
