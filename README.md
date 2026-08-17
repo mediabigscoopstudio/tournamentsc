@@ -154,3 +154,9 @@ serve a draft or archived tournament.
 
 SQLite by default. Set `DATABASE_URL=postgres://…` for PostgreSQL. All config is
 env-driven — see `.env.example`.
+
+---
+
+## Credits
+
+Developed by **Pinecode Studio LLP** for TournamentSC.
