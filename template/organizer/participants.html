@@ -132,47 +132,6 @@
                 </form>
               </div>
 
-              {% if tournament.sport.slug == 'basketball' %}
-                <div class="tmc-card tmc-card--import">
-                  <div class="tmc-card__head">
-                    <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg></span>
-                    <div>
-                      <div class="tmc-card__t">Import Team Roster</div>
-                      <p class="tmc-card__s">Upload a CSV or Excel file to fill this roster in one go.</p>
-                    </div>
-                  </div>
-                  <form method="post" enctype="multipart/form-data"
-                        action="{% url 'team_members_bulk_import' tournament.slug e.team.id %}"
-                        data-tmc-busyform>
-                    {% csrf_token %}
-                    <div class="tmc-drop" data-tmc-drop>
-                      <span class="tmc-drop__thumb">
-                        <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
-                        <img alt="" data-tmc-preview>
-                      </span>
-                      <span class="tmc-drop__copy">
-                        <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop file here</span>
-                        <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — .xlsx or .csv</span>
-                      </span>
-                      <span class="tmc-drop__file">
-                        <input type="file" name="roster_file" accept=".csv,.xlsx" required>
-                      </span>
-                      <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected file">
-                        <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
-                      </button>
-                    </div>
-                    <div class="tmc-hints">
-                      <span class="tmc-hint">.XLSX</span>
-                      <span class="tmc-hint">.CSV</span>
-                      <span class="tmc-hint">2 columns</span>
-                    </div>
-                    <p class="tmc-note">Columns: <code>Player Name</code> and <code>Jersey Number</code> — one player per row.</p>
-                    <button class="btn tmc-cta tmc-cta--alt">
-                      <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>Import Team Roster
-                    </button>
-                  </form>
-                </div>
-              {% endif %}
               </div>
             </div>
           </article>
@@ -299,46 +258,103 @@
           </div>
 
           <div class="tmc__panel tmc__panel--import">
-            <div class="tmc-card tmc-card--import">
-              <div class="tmc-card__head">
-                <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg></span>
-                <div>
-                  <div class="tmc-card__t">Bulk Team Import</div>
-                  <p class="tmc-card__s">Upload an Excel or CSV file to add every team at once.</p>
+            {% if tournament.sport.slug == 'basketball' %}
+              <div class="tmc-card tmc-card--import">
+                <div class="tmc-card__head">
+                  <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg></span>
+                  <div>
+                    <div class="tmc-card__t">Bulk Import Roster</div>
+                    <p class="tmc-card__s">Add teams and players together in one go.</p>
+                  </div>
                 </div>
-              </div>
 
-              <form method="post" enctype="multipart/form-data" action="{% url 'teams_bulk_import' tournament.slug %}" data-tmc-busyform>
-                {% csrf_token %}
-                <div class="tmc-drop" data-tmc-drop>
-                  <span class="tmc-drop__thumb">
-                    <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
-                    <img alt="" data-tmc-preview>
-                  </span>
-                  <span class="tmc-drop__copy">
-                    <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop your file</span>
-                    <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — .xlsx or .csv</span>
-                  </span>
-                  <span class="tmc-drop__file">
-                    <input type="file" name="teams_file" accept=".csv,.xlsx" required>
-                  </span>
-                  <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected file">
-                    <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
+                <form method="post" enctype="multipart/form-data" action="{% url 'participants_bulk_import' tournament.slug %}" data-tmc-busyform>
+                  {% csrf_token %}
+                  <div class="tmc-field">
+                    <label class="tmc-label" for="participants-text">
+                      <svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg>Paste rows
+                    </label>
+                    <textarea class="tmc-input tmc-textarea" id="participants-text" name="participants_text"
+                              rows="6" placeholder="Team Name&#9;Participant Name&#9;Jersey Number&#9;Phone Number"></textarea>
+                  </div>
+
+                  <p class="tmc-note">— or —</p>
+
+                  <div class="tmc-drop" data-tmc-drop>
+                    <span class="tmc-drop__thumb">
+                      <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
+                      <img alt="" data-tmc-preview>
+                    </span>
+                    <span class="tmc-drop__copy">
+                      <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop your file</span>
+                      <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — .xlsx or .csv</span>
+                    </span>
+                    <span class="tmc-drop__file">
+                      <input type="file" name="participants_file" accept=".csv,.xlsx">
+                    </span>
+                    <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected file">
+                      <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
+                    </button>
+                  </div>
+
+                  <div class="tmc-hints">
+                    <span class="tmc-hint">.XLSX</span>
+                    <span class="tmc-hint">.CSV</span>
+                    <span class="tmc-hint">4 columns</span>
+                  </div>
+                  <p class="tmc-note">Use four columns: <code>Team Name</code>, <code>Participant Name</code>,
+                    <code>Jersey Number</code>, <code>Phone Number</code>. Team Name, Participant Name, and Jersey
+                    Number are required; Phone Number is optional. One participant per row, grouped by team name.
+                    Empty rows are skipped. If a team or participant already exists, it will be skipped rather than
+                    duplicated.</p>
+
+                  <button class="btn tmc-cta tmc-cta--alt">
+                    <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>Import Teams &amp; Players
                   </button>
+                </form>
+              </div>
+            {% else %}
+              <div class="tmc-card tmc-card--import">
+                <div class="tmc-card__head">
+                  <span class="tmc-card__ic"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg></span>
+                  <div>
+                    <div class="tmc-card__t">Bulk Team Import</div>
+                    <p class="tmc-card__s">Upload an Excel or CSV file to add every team at once.</p>
+                  </div>
                 </div>
 
-                <div class="tmc-hints">
-                  <span class="tmc-hint">.XLSX</span>
-                  <span class="tmc-hint">.CSV</span>
-                  <span class="tmc-hint">1 column</span>
-                </div>
-                <p class="tmc-note">Use a single column headed <code>Team Name</code> — one team per row. Empty rows are skipped.</p>
+                <form method="post" enctype="multipart/form-data" action="{% url 'teams_bulk_import' tournament.slug %}" data-tmc-busyform>
+                  {% csrf_token %}
+                  <div class="tmc-drop" data-tmc-drop>
+                    <span class="tmc-drop__thumb">
+                      <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
+                      <img alt="" data-tmc-preview>
+                    </span>
+                    <span class="tmc-drop__copy">
+                      <span class="tmc-drop__t" data-tmc-title>Drag &amp; drop your file</span>
+                      <span class="tmc-drop__s" data-tmc-sub>or <span class="tmc-drop__browse">browse files</span> — .xlsx or .csv</span>
+                    </span>
+                    <span class="tmc-drop__file">
+                      <input type="file" name="teams_file" accept=".csv,.xlsx" required>
+                    </span>
+                    <button type="button" class="tmc-drop__clear" data-tmc-clear hidden aria-label="Remove selected file">
+                      <svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg>
+                    </button>
+                  </div>
 
-                <button class="btn tmc-cta tmc-cta--alt">
-                  <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>Import Teams
-                </button>
-              </form>
-            </div>
+                  <div class="tmc-hints">
+                    <span class="tmc-hint">.XLSX</span>
+                    <span class="tmc-hint">.CSV</span>
+                    <span class="tmc-hint">1 column</span>
+                  </div>
+                  <p class="tmc-note">Use a single column headed <code>Team Name</code> — one team per row. Empty rows are skipped.</p>
+
+                  <button class="btn tmc-cta tmc-cta--alt">
+                    <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>Import Teams
+                  </button>
+                </form>
+              </div>
+            {% endif %}
           </div>
         </section>
       {% else %}

@@ -257,6 +257,7 @@ class TeamMembership(models.Model):
                                     help_text='For roster entries without a platform account')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='MEMBER')
     jersey_number = models.CharField(max_length=8, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, help_text='Optional contact number')
     is_approved = models.BooleanField(default=True, help_text='False = pending player join request')
     joined_at = models.DateTimeField(auto_now_add=True)
 

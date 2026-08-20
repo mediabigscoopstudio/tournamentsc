@@ -276,6 +276,94 @@ def team_members_bulk_import(request, slug, team_id):
     return redirect('participants_manage', slug=slug)
 
 
+def _group_rows_by_team(rows):
+    """Stable group-by on team name (stripped + casefolded), preserving the
+    display casing of each team's first occurrence and the original row
+    order within each group."""
+    order = []
+    groups = {}
+    for row in rows:
+        key = row.team_name.strip().casefold()
+        if key not in groups:
+            order.append(key)
+            groups[key] = (row.team_name.strip(), [])
+        groups[key][1].append(row)
+    return [groups[key] for key in order]
+
+
+@approved_organizer_required
+@require_POST
+def participants_bulk_import(request, slug):
+    """Combined basketball import: one paste/upload creates teams and their
+    rostered participants (name, jersey number, phone number) together,
+    replacing the old two-step team-then-roster flow. Re-running the same
+    import is safe — existing teams/participants are skipped, not duplicated."""
+    t = _owned(request, slug)
+    if t.sport.slug != 'basketball':
+        messages.error(request, 'This import is only available for basketball tournaments.')
+        return redirect('participants_manage', slug=slug)
+
+    upload = request.FILES.get('participants_file')
+    pasted = (request.POST.get('participants_text') or '').strip()
+    if not upload and not pasted:
+        messages.error(request, 'Paste some rows or choose a file to import.')
+        return redirect('participants_manage', slug=slug)
+
+    from .participant_import import parse_participants
+    parsed = parse_participants(uploaded_file=upload, pasted_text=pasted or None)
+    if parsed.errors:
+        for e in parsed.errors:
+            messages.error(request, e)
+        return redirect('participants_manage', slug=slug)
+
+    created_teams = created_participants = skipped_existing = 0
+    row_errors = []
+
+    for team_name, rows in _group_rows_by_team(parsed.rows):
+        try:
+            with transaction.atomic():
+                team = Team.objects.filter(sport=t.sport, entries__tournament=t,
+                                           name__iexact=team_name).first()
+                if team is None:
+                    team = Team.objects.create(name=team_name, sport=t.sport)
+                    created_teams += 1
+                TournamentTeamEntry.objects.get_or_create(tournament=t, team=team,
+                                                          defaults={'status': 'APPROVED'})
+
+                for row in rows:
+                    if row.error:
+                        row_errors.append(f'Row {row.excel_row}: {row.error}.')
+                        continue
+                    existing = team.memberships.filter(
+                        player__isnull=True,
+                        display_name__iexact=row.participant_name).first()
+                    if existing:
+                        skipped_existing += 1
+                        continue
+                    TeamMembership.objects.create(team=team, display_name=row.participant_name,
+                                                  jersey_number=row.jersey, phone_number=row.phone,
+                                                  is_approved=True)
+                    created_participants += 1
+        except Exception:
+            row_errors.append(f'Team "{team_name}": could not be imported (unexpected error).')
+
+    if created_teams or created_participants:
+        messages.success(request,
+            f'Imported {created_participants} participant(s) across {created_teams} new team(s).')
+    if skipped_existing:
+        messages.info(request, f'{skipped_existing} participant(s) already existed and were skipped.')
+    if parsed.skipped_blank:
+        messages.info(request, f'{parsed.skipped_blank} empty row(s) were skipped.')
+    for err in row_errors[:20]:
+        messages.error(request, err)
+    if len(row_errors) > 20:
+        messages.error(request, f'...and {len(row_errors) - 20} more row error(s).')
+    if not created_teams and not created_participants and not skipped_existing and not row_errors:
+        messages.error(request, 'No participants were imported — the input had no valid rows.')
+
+    return redirect('participants_manage', slug=slug)
+
+
 @approved_organizer_required
 @require_POST
 def member_decide(request, slug, membership_id, decision):

@@ -37,6 +37,8 @@ urlpatterns = [
          views.team_member_add, name='team_member_add'),
     path('organizer/t/<slug:slug>/participants/team/<int:team_id>/member/import',
          views.team_members_bulk_import, name='team_members_bulk_import'),
+    path('organizer/t/<slug:slug>/participants/import',
+         views.participants_bulk_import, name='participants_bulk_import'),
     path('organizer/t/<slug:slug>/participants/member/<int:membership_id>/<str:decision>',
          views.member_decide, name='member_decide'),
     path('organizer/t/<slug:slug>/participants/individual/add',

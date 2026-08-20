@@ -1141,6 +1141,7 @@ a.authcard:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-c
 .tmc-input:focus{ background:#fff; border-color:var(--sp);
   box-shadow:0 0 0 4px color-mix(in srgb,var(--sp) 15%, transparent); }
 .tmc-input:focus-visible{ outline:none; }
+.tmc-textarea{ min-height:140px; resize:vertical; font-family:var(--font-mono, monospace); font-weight:500; font-size:13px; line-height:1.5; }
 .tmc-err{ margin-top:7px; font-size:12px; font-weight:600; color:var(--live); }
 
 /* ---- drop zone. The real <input type="file"> is stretched across the whole
